@@ -8,4 +8,11 @@ description = "WIP Handlebarsy templating engine"
 repository = "https://github.com/maciejhirsz/ramhorns"
 documentation = "https://docs.rs/ramhorns"
 
-[dependencies]
+[dev-dependencies]
+handlebars = "1.1"
+serde = "1.0"
+serde_derive = "1.0"
+
+[profile]
+release = { lto = true }
+bench = { lto = true }

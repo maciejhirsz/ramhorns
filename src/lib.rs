@@ -1,6 +1,6 @@
 mod fnv;
 mod template;
-mod context;
+pub mod context;
 
 pub use template::Template;
 pub use context::Context;

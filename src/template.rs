@@ -50,7 +50,7 @@ impl<'template> Template<'template> {
 		}
 	}
 
-	fn render<'ctx, Ctx: Context<'ctx>>(&self, ctx: &'ctx Ctx) -> String {
+	pub fn render<'ctx, Ctx: Context<'ctx>>(&self, ctx: &'ctx Ctx) -> String {
 		let mut buf = String::with_capacity(self.capacity);
 
 		let fields = ctx.to_fields();
@@ -165,14 +165,8 @@ mod test {
 
 			fn to_fields(&'ctx self) -> Self::Fields {
 				[
-					Field {
-						hash: fnv::hash("body"),
-						value: self.body,
-					},
-					Field {
-						hash: fnv::hash("title"),
-						value: self.title,
-					}
+					Field::from_name("body", self.body),
+					Field::from_name("title", self.title),
 				]
 			}
 		}
