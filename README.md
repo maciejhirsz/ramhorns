@@ -41,9 +41,10 @@ test e_simple_handlebars ... bench:       2,979 ns/iter (+/- 129)
 
 Worth noting here is that both [**Askama**](https://github.com/djc/askama) and
 [**wearte**](https://github.com/dgriffen/wearte) (which, AFAIK, is a fork of Askama)
-are process templates on compile time and bundle them into the binary. This is great
-for performance, but it also means you can't swap out templates without recompiling
-your Rust binaries. For static site generators this is a no-go.
+are processing templates at compile time and generate static rust code for rendering.
+This is great for performance, but it also means you can't swap out templates without
+recompiling your Rust binaries. In some cases, like for a static site generator, this
+is unfortunately a deal breaker.
 
 The [**mustache** crate](https://github.com/nickel-org/rust-mustache) is the closest
 thing to **Ramhorns** in design.
