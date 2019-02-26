@@ -186,7 +186,7 @@ impl<'tpl> Section<'tpl> {
 						self.capacity_hint += html.len();
 						self.blocks.insert(insert_index, Block::new(html, name, tag));
 
-						let is_closing = match tag {
+						match tag {
 							Tag::Section(_) |
 							Tag::Inverse(_) => {
 								let count = self.parse(source, iter, last, Some(name));
@@ -196,20 +196,16 @@ impl<'tpl> Section<'tpl> {
 									Tag::Inverse(ref mut c) => *c = count,
 									_ => {},
 								}
-
-								false
 							},
-							Tag::Closing => true,
-							_ => false,
+							Tag::Closing => {
+								if until.map(|until| until != name).unwrap_or(false) {
+									// TODO: handle error here
+								}
+
+								return self.blocks.len() - blocks_at_start;
+							},
+							_ => {},
 						};
-
-						if is_closing {
-							if until.map(|until| until != name).unwrap_or(false) {
-								// TODO: handle error here
-							}
-
-							return self.blocks.len() - blocks_at_start;
-						}
 
 						break;
 					}
