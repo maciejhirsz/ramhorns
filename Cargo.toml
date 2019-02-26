@@ -1,22 +1,9 @@
-[package]
-name = "ramhorns"
-version = "0.0.0"
-authors = ["Maciej Hirsz <maciej.hirsz@pm.me>"]
-license = "MIT/Apache-2.0"
-edition = "2018"
-description = "WIP Handlebarsy templating engine"
-repository = "https://github.com/maciejhirsz/ramhorns"
-documentation = "https://docs.rs/ramhorns"
-
-[dependencies]
-cowvec = "0.1"
-
-[dev-dependencies]
-askama = "0.8"
-handlebars = "1.1"
-serde = "1.0"
-serde_derive = "1.0"
-mustache = "0.9"
+[workspace]
+members = [
+    "ramhorns",
+    # "ramhorns-derive",
+    "tests",
+]
 
 [profile]
 release = { lto = true }
