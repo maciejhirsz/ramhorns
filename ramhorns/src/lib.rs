@@ -9,7 +9,7 @@
 
 //! # [WIP] Ramhorns
 //!
-//! Experimental [`{{ mustache }}`](https://mustache.github.io/)-ish implementation.
+//! Experimental [**`{{ mustache }}`**](https://mustache.github.io/)-ish implementation.
 //!
 //! **Ramhorns** loads and processes templates **at runtime**. It comes with a derive
 //! macro for structs which allows templates to be rendered from native Rust data

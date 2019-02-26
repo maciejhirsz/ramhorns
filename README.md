@@ -2,7 +2,7 @@
 
 # [WIP] Ramhorns
 
-Experimental [`{{ mustache }}`](https://mustache.github.io/)-ish implementation.
+Experimental [**`{{ mustache }}`**](https://mustache.github.io/)-ish implementation.
 
 **Ramhorns** loads and processes templates **at runtime**. It comes with a derive
 macro for structs which allows templates to be rendered from native Rust data
@@ -46,5 +46,5 @@ This is great for performance, but it also means you can't swap out templates wi
 recompiling your Rust binaries. In some cases, like for a static site generator, this
 is unfortunately a deal breaker.
 
-The [**mustache** crate](https://github.com/nickel-org/rust-mustache) is the closest
+The [**Mustache** crate](https://github.com/nickel-org/rust-mustache) is the closest
 thing to **Ramhorns** in design.
