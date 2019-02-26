@@ -7,6 +7,34 @@
 // You should have received a copy of the GNU General Public License
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
+//! # [WIP] Ramhorns
+//!
+//! Experimental [`{{ mustache }}`](https://mustache.github.io/)-ish implementation.
+//!
+//! **Ramhorns** loads and processes templates **at runtime**. It comes with a derive
+//! macro for structs which allows templates to be rendered from native Rust data
+//! structures without doing temporary allocations, intermediate hashmaps and what
+//! have you.
+//!
+//! ```rust
+//! use ramhorns::{Template, Context};
+//!
+//! #[derive(Context)]
+//! struct Post<'a> {
+//! 	title: &'a str,
+//! 	body: &'a str,
+//! }
+//!
+//! let tpl = Template::new("<h1>{{title}}</h1><div>{{body}}</div>");
+//!
+//! let rendered = tpl.render(&Post {
+//! 	title: "Hello Ramhorns",
+//! 	body: "Well, that was easy!",
+//! });
+//!
+//! assert_eq!(rendered, "<h1>Hello Ramhorns</h1><div>Well, that was easy!</div>")
+//! ```
+
 mod template;
 mod context;
 
