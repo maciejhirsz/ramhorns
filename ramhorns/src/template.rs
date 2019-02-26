@@ -1,292 +1,273 @@
-use crate::fnv;
-use crate::Context;
+// Ramhorns  Copyright (C) 2019  Maciej Hirsz
+//
+// This file is part of Ramhorns. This program comes with ABSOLUTELY NO WARRANTY;
+// This is free software, and you are welcome to redistribute it under the
+// conditions of the GNU General Public License version 3.0.
+//
+// You should have received a copy of the GNU General Public License
+// along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Braces {
-	Two = 2,
-	Three = 3,
+use fnv::FnvHasher;
+use std::hash::Hasher;
+
+pub struct Template<'tpl> {
+	/// Processed `Block`s of the template
+	section: Section<'tpl>,
+
+	/// Tailing html that isn't part of any `Block`
+	tail: &'tpl str,
 }
 
-pub struct Template<'template> {
-	capacity: usize,
-	chunks: Vec<&'template str>,
-	vtable: Vec<Variable<'template>>,
-}
+impl<'tpl> Template<'tpl> {
+	pub fn new(source: &'tpl str) -> Self {
+		let mut iter = source.as_bytes()
+			.get(..source.len() - 1)
+			.unwrap_or(&[])
+			.iter()
+			.map(|b| unsafe { &*(b as *const u8 as *const [u8; 2]) })
+			.enumerate();
 
-impl<'template> Template<'template> {
-	pub fn new(source: &'template str) -> Self {
-		let capacity = source.len();
-		let mut chunks = Vec::new();
-		let mut vtable = Vec::new();
+		let mut section = Section::new();
 		let mut last = 0;
 
-		if let Some(bytes) = source.as_bytes().get(..source.len() - 1) {
-			let mut indexed = bytes.iter().map(|b| unsafe { &*(b as *const u8 as *const [u8; 2]) }).enumerate();
+		section.parse(source, &mut iter, &mut last, None);
 
-			while let Some((start, bytes)) = indexed.next() {
-				if bytes == b"{{" {
-					// Skip a byte since we got a double
-					indexed.next();
-
-					let mut kind = VKind::Escaped;
-					let mut braces = Braces::Two;
-
-					while let Some((_, bytes)) = indexed.next() {
-						match bytes[0] {
-							b'{' => {
-								kind = VKind::Unescaped;
-								braces = Braces::Three;
-							},
-							b'!' => kind = VKind::Comment,
-							b' ' | b'\t' | b'\r' | b'\n' => continue,
-							_ => {}
-						}
-
-						break;
-					}
-
-					chunks.push(&source[last..start]);
-
-					while let Some((end, bytes)) = indexed.next() {
-						if bytes == b"}}" {
-							// Skip a byte since we got a double
-							indexed.next();
-
-							if braces == Braces::Three {
-								// TODO: verify that there is a third brace
-								indexed.next();
-							}
-
-							let name = source[start + braces as usize..end].trim();
-
-							vtable.push(Variable::new(kind, name, usize::max_value()));
-
-							last = end + braces as usize;
-							break;
-						}
-					}
-				}
-			}
-		}
-
-		chunks.push(&source[last..]);
-
-		Self::finalize_vtable(&mut vtable);
+		let tail = &source[last..];
 
 		Template {
-			capacity,
-			chunks,
-			vtable,
+			section,
+			tail,
 		}
 	}
 
-	pub fn render<'ctx, Ctx: Context<'ctx>>(&self, ctx: &'ctx Ctx) -> String {
-		let mut buf = String::with_capacity(self.capacity);
+	pub fn capacity_hint(&self) -> usize {
+		self.section.capacity_hint + self.tail.len()
+	}
 
-		let fields = ctx.to_fields();
-		let fields = fields.as_ref();
+	pub fn render<Context: crate::Context>(&self, ctx: &Context) -> String {
+		let mut capacity = ctx.capacity_hint(self);
 
-		buf.push_str(self.chunks[0]);
+		// Add extra 25% extra capacity for HTML escapes and an odd double variable use.
+		capacity += capacity / 4;
 
-		for (chunk, var) in self.chunks[1..].iter().zip(&self.vtable) {
-			// TODO: Handle the errors
-			if let Some(field) = fields.get(var.field) {
-				if field.hash == var.hash {
-					match var.kind {
-						VKind::Escaped => Self::escape_write(&mut buf, &field.value),
-						VKind::Unescaped => buf.push_str(&field.value),
-						VKind::Comment => {},
-					}
-				}
-			}
+		let mut buf = String::with_capacity(capacity);
 
-			buf.push_str(chunk);
-		}
+		self.section.render_once(ctx, &mut buf);
 
+		buf.push_str(self.tail);
 		buf
-	}
-
-	fn finalize_vtable(vtable: &mut Vec<Variable>) {
-		let mut temp = Vec::with_capacity(vtable.len());
-
-		for var in vtable.iter().filter(|var| var.kind != VKind::Comment) {
-			if let Err(index) = temp.binary_search(&var.name) {
-				temp.insert(index, var.name);
-			}
-		}
-
-		for var in vtable.iter_mut().filter(|var| var.kind != VKind::Comment) {
-			if let Ok(index) = temp.binary_search(&var.name) {
-				var.field = index;
-			}
-		}
-	}
-
-	fn escape_write(buf: &mut String, part: &str) {
-		let mut start = 0;
-
-		for (idx, byte) in part.bytes().enumerate() {
-			let replace = match byte {
-				b'<' => "&lt;",
-				b'>' => "&gt;",
-				b'&' => "&amp;",
-				b'"' => "&quot;",
-				_ => continue,
-			};
-
-			buf.push_str(&part[start..idx]);
-			buf.push_str(replace);
-
-			start = idx + 1;
-		}
-
-		buf.push_str(&part[start..]);
 	}
 }
 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum VKind {
+pub enum Tag {
 	Escaped,
 	Unescaped,
+	Section(usize),
+	Inverse(usize),
+	Closing,
 	Comment,
 }
 
 #[derive(Debug, PartialEq, Eq)]
-struct Variable<'template> {
-	pub kind: VKind,
-	pub name: &'template str,
-	pub hash: u64,
-	pub field: usize,
+struct Block<'tpl> {
+	html: &'tpl str,
+	name: &'tpl str,
+	hash: u64,
+	tag: Tag,
 }
 
-impl<'template> Variable<'template> {
-	fn new(kind: VKind, name: &'template str, field: usize) -> Self {
-		let hash = fnv::hash(name);
+impl<'tpl> Block<'tpl> {
+	fn new(html: &'tpl str, name: &'tpl str, tag: Tag) -> Self {
+		let mut hasher = FnvHasher::default();
 
-		Variable {
-			kind,
+		hasher.write(name.as_bytes());
+
+		let hash = hasher.finish();
+
+		Block {
+			html,
 			name,
 			hash,
-			field,
+			tag,
 		}
+	}
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct Section<'tpl> {
+	blocks: Vec<Block<'tpl>>,
+	capacity_hint: usize,
+}
+
+impl<'tpl> Section<'tpl> {
+	pub fn render_once<Context: crate::Context>(&self, ctx: &Context, buf: &mut String) {
+		let mut index = 0;
+
+		while let Some(block) = self.blocks.get(index) {
+			buf.push_str(block.html);
+
+			match block.tag {
+				Tag::Escaped => ctx.render_escaped(block.hash, buf),
+				Tag::Unescaped => ctx.render_unescaped(block.hash, buf),
+				Tag::Section(count) => index += count, // ctx.render_section(block.hash, section, buf),
+				Tag::Inverse(count) => index += count, //ctx.render_inverse(block.hash, section, buf),
+				Tag::Closing |
+				Tag::Comment => {},
+			}
+
+			index += 1;
+		}
+	}
+
+	fn new() -> Self {
+		Section {
+			blocks: Vec::new(),
+			capacity_hint: 0,
+		}
+	}
+
+	fn parse<Iter>(&mut self, source: &'tpl str, iter: &mut Iter, last: &mut usize, until: Option<&'tpl str>) -> usize
+	where
+		Iter: Iterator<Item = (usize, &'tpl [u8; 2])>,
+	{
+		let blocks_at_start = self.blocks.len();
+
+		while let Some((start, bytes)) = iter.next() {
+			if bytes == b"{{" {
+				// Skip a byte since we got a double
+				iter.next();
+
+				let mut tag = Tag::Escaped;
+				let mut start_skip = 2;
+				let mut end_skip = 2;
+
+				while let Some((_, bytes)) = iter.next() {
+					match bytes[0] {
+						b'{' => {
+							tag = Tag::Unescaped;
+							end_skip = 3;
+						},
+						b'#' => tag = Tag::Section(0),
+						b'^' => tag = Tag::Inverse(0),
+						b'/' => tag = Tag::Closing,
+						b'!' => tag = Tag::Comment,
+						b' ' | b'\t' | b'\r' | b'\n' => {
+							start_skip += 1;
+							continue;
+						}
+						_ => break,
+					}
+
+					start_skip += 1;
+
+					break;
+				}
+
+				let html = &source[*last..start];
+
+				while let Some((end, bytes)) = iter.next() {
+					if bytes == b"}}" {
+						// Skip a byte since we got a double
+						iter.next();
+
+						if end_skip == 3 {
+							// TODO: verify that there is a third brace
+							iter.next();
+						}
+
+						let name = source[start + start_skip..end].trim();
+
+						*last = end + end_skip;
+
+						let insert_index = self.blocks.len();
+
+						self.capacity_hint += html.len();
+						self.blocks.insert(insert_index, Block::new(html, name, tag));
+
+						let is_closing = match tag {
+							Tag::Section(_) |
+							Tag::Inverse(_) => {
+								let count = self.parse(source, iter, last, Some(name));
+
+								match self.blocks[insert_index].tag {
+									Tag::Section(ref mut c) |
+									Tag::Inverse(ref mut c) => *c = count,
+									_ => {},
+								}
+
+								false
+							},
+							Tag::Closing => true,
+							_ => false,
+						};
+
+						if is_closing {
+							if until.map(|until| until != name).unwrap_or(false) {
+								// TODO: handle error here
+							}
+
+							return self.blocks.len() - blocks_at_start;
+						}
+
+						break;
+					}
+				}
+			}
+		}
+
+		if until.is_some() {
+			// TODO: handle error here
+		}
+
+		self.blocks.len() - blocks_at_start
 	}
 }
 
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::context::Field;
 
 	#[test]
-	fn extracts_chunks_correctly() {
-		let source = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{{body}}}</div>";
-		let tpl = Template::new(source);
-
-		assert_eq!(&tpl.chunks, &["<title>", "</title><h1>", "</h1><div>", "</div>"]);
-	}
-
-	#[test]
-	fn constructs_var_table_correctly() {
-		let source = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{{body}}}</div>";
-		let tpl = Template::new(source);
-
-		assert_eq!(&tpl.vtable, &[
-			Variable::new(VKind::Escaped, "title", 1), // Names are sorted alphabeticaly, so all
-			Variable::new(VKind::Escaped, "title", 1), // `title` entries map to field 1, while
-			Variable::new(VKind::Unescaped, "body", 0),  // all `body` entries map to field 0.
-		]);
-	}
-
-	#[test]
-	fn var_table_record_hashes_correctly() {
-		assert_eq!(Variable::new(VKind::Escaped, "test", 42), Variable {
-			kind: VKind::Escaped,
+	fn block_hashes_correctly() {
+		assert_eq!(Block::new("", "test", Tag::Escaped), Block {
+			html: "",
 			name: "test",
 			hash: 0xf9e6e6ef197c2b25,
-			field: 42,
+			tag: Tag::Escaped,
 		});
 	}
 
 	#[test]
-	fn simple_render() {
-		struct Post<'a> {
-			title: &'a str,
-			body: &'a str,
-		}
-
-		impl<'a, 'ctx> Context<'ctx> for Post<'a> {
-			type Fields = [Field<'ctx>; 2];
-
-			fn to_fields(&'ctx self) -> Self::Fields {
-				[
-					Field::from_name("body", self.body),
-					Field::from_name("title", self.title),
-				]
-			}
-		}
-
-		let source = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{body}}</div>";
+	fn constructs_blocks_correctly() {
+		let source = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{{body}}}</div>";
 		let tpl = Template::new(source);
 
-		let rendered = tpl.render(&Post {
-			title: "Hello, Ramhorns!",
-			body: "This is a really simple test of the rendering!",
-		});
+		assert_eq!(&tpl.section.blocks, &[
+			Block::new("<title>", "title", Tag::Escaped),
+			Block::new("</title><h1>", "title", Tag::Escaped),
+			Block::new("</h1><div>", "body", Tag::Unescaped),
+		]);
 
-		assert_eq!(&rendered, "<title>Hello, Ramhorns!</title><h1>Hello, Ramhorns!</h1>\
-							   <div>This is a really simple test of the rendering!</div>");
+		assert_eq!(tpl.tail, "</div>");
 	}
 
 	#[test]
-	fn simple_render_with_comments() {
-		struct Post<'a> {
-			title: &'a str,
-			body: &'a str,
-		}
-
-		impl<'a, 'ctx> Context<'ctx> for Post<'a> {
-			type Fields = [Field<'ctx>; 2];
-
-			fn to_fields(&'ctx self) -> Self::Fields {
-				[
-					Field::from_name("body", self.body),
-					Field::from_name("title", self.title),
-				]
-			}
-		}
-
-		let source = "<title>{{ ! ignore me }}{{title}}</title>{{!-- nothing to look at here --}}<h1>{{ title }}</h1><div>{{body}}</div>";
+	fn constructs_nested_sections_correctly() {
+		let source = "<body><h1>{{ title }}</h1>{{#posts}}<article>{{name}}</article>{{/posts}}{{^posts}}<p>Nothing here :(</p>{{/posts}}</body>";
 		let tpl = Template::new(source);
 
-		let rendered = tpl.render(&Post {
-			title: "Hello, Ramhorns!",
-			body: "This is a really simple test of the rendering!",
-		});
 
-		assert_eq!(&rendered, "<title>Hello, Ramhorns!</title><h1>Hello, Ramhorns!</h1>\
-							   <div>This is a really simple test of the rendering!</div>");
-	}
+		assert_eq!(&tpl.section.blocks, &[
+			Block::new("<body><h1>", "title", Tag::Escaped),
+			Block::new("</h1>", "posts", Tag::Section(2)),
+			Block::new("<article>", "name", Tag::Escaped),
+			Block::new("</article>", "posts", Tag::Closing),
+			Block::new("", "posts", Tag::Inverse(1)),
+			Block::new("<p>Nothing here :(</p>", "posts", Tag::Closing),
+		]);
 
-	#[test]
-	fn escaped_vs_unescaped() {
-		struct Dummy;
-
-		impl<'ctx> Context<'ctx> for Dummy {
-			type Fields = [Field<'ctx>; 1];
-
-			fn to_fields(&'ctx self) -> Self::Fields {
-				[
-					Field::from_name("dummy", "This is a <strong>test</strong>!"),
-				]
-			}
-		}
-
-		let tpl = Template::new("Escaped: {{dummy}} Unescaped: {{{dummy}}}");
-
-		let rendered = tpl.render(&Dummy);
-
-		assert_eq!(rendered, "Escaped: This is a &lt;strong&gt;test&lt;/strong&gt;! \
-							  Unescaped: This is a <strong>test</strong>!")
+		assert_eq!(tpl.tail, "</body>");
 	}
 }

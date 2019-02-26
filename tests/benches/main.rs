@@ -2,30 +2,17 @@
 extern crate test;
 
 use test::{Bencher, black_box};
-use ramhorns::context::{Context, Field};
+use ramhorns::Context;
 use serde_derive::Serialize;
 use askama::Template;
 
 static SOURCE: &str = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{{body}}}</div>";
 
-#[derive(Serialize, Template)]
+#[derive(Context, Serialize, Template)]
 #[template(source = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{body|safe}}</div>", ext = "html")]
 struct Post<'a> {
 	title: &'a str,
 	body: &'a str,
-}
-
-impl<'a, 'ctx> Context<'ctx> for Post<'a> {
-	type Fields = [Field<'ctx>; 2];
-
-	fn to_fields(&'ctx self) -> Self::Fields {
-		[
-			// Field::from_name("body", self.body),
-			// Field::from_name("title", self.title),
-			Field::new(0xcd4de79bc6c93295, self.body),
-			Field::new(0xda31296c0c1b6029, self.title),
-		]
-	}
 }
 
 #[bench]
@@ -44,7 +31,28 @@ fn a_simple_ramhorns(b: &mut Bencher) {
 }
 
 #[bench]
-fn b_simple_askama(b: &mut Bencher) {
+fn b_simple_wearte(b: &mut Bencher) {
+	use wearte::Template;
+
+	#[derive(Serialize, Template)]
+	#[template(source = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{{body}}}</div>", ext = "html")]
+	struct Post<'a> {
+		title: &'a str,
+		body: &'a str,
+	}
+
+	let post = Post {
+		title: "Hello, Ramhorns!",
+		body: "This is a really simple test of the rendering!",
+	};
+
+    b.iter(|| {
+    	black_box(post.call())
+    });
+}
+
+#[bench]
+fn c_simple_askama(b: &mut Bencher) {
 	use askama::Template;
 
 	let post = Post {
@@ -58,7 +66,7 @@ fn b_simple_askama(b: &mut Bencher) {
 }
 
 #[bench]
-fn c_simple_mustache(b: &mut Bencher) {
+fn d_simple_mustache(b: &mut Bencher) {
 	let tpl = mustache::compile_str(SOURCE).unwrap();
 
 	let post = Post {
@@ -72,7 +80,7 @@ fn c_simple_mustache(b: &mut Bencher) {
 }
 
 #[bench]
-fn d_simple_handlebars(b: &mut Bencher) {
+fn e_simple_handlebars(b: &mut Bencher) {
 	use handlebars::Handlebars;
 
 	let mut handlebars = Handlebars::new();

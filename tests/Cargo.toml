@@ -2,7 +2,7 @@
 name = "tests"
 version = "0.0.0"
 authors = ["maciejhirsz <maciej.hirsz@pm.me>"]
-license = "MIT/Apache-2.0"
+license = "GPL-3.0"
 repository = "https://github.com/maciejhirsz/ramhorns"
 edition = "2018"
 
@@ -13,3 +13,4 @@ handlebars = "1.1"
 serde = "1.0"
 serde_derive = "1.0"
 mustache = "0.9"
+wearte = "0.0.1"
