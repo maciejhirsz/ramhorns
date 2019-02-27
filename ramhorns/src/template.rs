@@ -7,8 +7,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
-use fnv::FnvHasher;
 use std::hash::Hasher;
+use std::io::{self, Write};
+
+use fnv::FnvHasher;
+
+use crate::{Context, Encoder};
 
 pub struct Template<'tpl> {
 	/// Processed `Block`s of the template
@@ -44,18 +48,33 @@ impl<'tpl> Template<'tpl> {
 		self.section.capacity_hint + self.tail.len()
 	}
 
+	pub fn render_to<Context, Writer>(&self, ctx: &Context, writer: Writer) -> io::Result<()>
+	where
+		Context: crate::Context,
+		Writer: Write,
+	{
+		let mut encoder = Encoder::new(writer);
+
+		self.section.render_once(ctx, &mut encoder)?;
+
+		encoder.write(self.tail)
+	}
+
 	pub fn render<Context: crate::Context>(&self, ctx: &Context) -> String {
 		let mut capacity = ctx.capacity_hint(self);
 
 		// Add extra 25% extra capacity for HTML escapes and an odd double variable use.
 		capacity += capacity / 4;
 
-		let mut buf = String::with_capacity(capacity);
+		let mut buf = Vec::with_capacity(capacity);
 
-		self.section.render_once(ctx, &mut buf);
+		// Ignore the result, cannot fail
+		let _ = self.render_to(ctx, &mut buf);
 
-		buf.push_str(self.tail);
-		buf
+		unsafe {
+			// Encoder guarantees that all writes are UTF8
+			String::from_utf8_unchecked(buf)
+		}
 	}
 }
 
@@ -102,15 +121,19 @@ pub struct Section<'tpl> {
 }
 
 impl<'tpl> Section<'tpl> {
-	pub fn render_once<Context: crate::Context>(&self, ctx: &Context, buf: &mut String) {
+	pub fn render_once<C, W>(&self, ctx: &C, encoder: &mut Encoder<W>) -> io::Result<()>
+	where
+		C: Context,
+		W: Write,
+	{
 		let mut index = 0;
 
 		while let Some(block) = self.blocks.get(index) {
-			buf.push_str(block.html);
+			encoder.write(block.html)?;
 
 			match block.tag {
-				Tag::Escaped => ctx.render_escaped(block.hash, buf),
-				Tag::Unescaped => ctx.render_unescaped(block.hash, buf),
+				Tag::Escaped => ctx.render_escaped(block.hash, encoder)?,
+				Tag::Unescaped => ctx.render_unescaped(block.hash, encoder)?,
 				Tag::Section(count) => index += count, // ctx.render_section(block.hash, section, buf),
 				Tag::Inverse(count) => index += count, //ctx.render_inverse(block.hash, section, buf),
 				Tag::Closing |
@@ -119,6 +142,8 @@ impl<'tpl> Section<'tpl> {
 
 			index += 1;
 		}
+
+		Ok(())
 	}
 
 	fn new() -> Self {

@@ -37,9 +37,11 @@
 
 mod template;
 mod context;
+mod encoder;
 
 pub use template::{Template, Section};
 pub use context::Context;
+pub use encoder::Encoder;
 
 #[cfg(feature = "export_derive")]
 pub use ramhorns_derive::Context;

@@ -7,7 +7,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
-use crate::{Template, Section};
+use std::io::{Write, Result};
+
+use crate::{Template, Encoder};
 
 pub trait Context {
 	const FIELDS: &'static [&'static str];
@@ -19,16 +21,16 @@ pub trait Context {
 	/// Render a field, by the hash of it's name, into the buffer.
 	///
 	/// This will escape HTML characters, eg: `<` will become `&lt;`
-	fn render_escaped(&self, hash: u64, buf: &mut String);
+	fn render_escaped<W: Write>(&self, hash: u64, encoder: &mut Encoder<W>) -> Result<()>;
 
 	/// Render a field, by the hash of it's name, into the buffer.
 	///
 	/// This doesn't perform any escaping at all.
-	fn render_unescaped(&self, hash: u64, buf: &mut String);
+	fn render_unescaped<W: Write>(&self, hash: u64, encoder: &mut Encoder<W>) -> Result<()>;
 
-	/// Render a field, by the hash of it's name, as a section into the buffer.
-	fn render_section(&self, hash: u64, section: &Section, buf: &mut String) {}
+	// /// Render a field, by the hash of it's name, as a section into the buffer.
+	// fn render_section(&self, hash: u64, section: &Section, buf: &mut String) {}
 
-	/// Render a field, by the hash of it's name, as an inverse section into the buffer.
-	fn render_inverse(&self, hash: u64, section: &Section, buf: &mut String) {}
+	// /// Render a field, by the hash of it's name, as an inverse section into the buffer.
+	// fn render_inverse(&self, hash: u64, section: &Section, buf: &mut String) {}
 }

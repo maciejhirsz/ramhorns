@@ -70,18 +70,19 @@ pub fn logos(input: TokenStream) -> TokenStream {
 
 	let render_escaped = fields.iter().map(|(_, field, hash, _)| {
 		quote! {
-			#hash => ramhorns::escape(buf, self.#field),
+			#hash => encoder.write_escaped(self.#field),
 		}
 	});
 
 	let render_unescaped = fields.iter().map(|(_, field, hash, _)| {
 		quote! {
-			#hash => buf.push_str(self.#field),
+			#hash => encoder.write(self.#field),
 		}
 	});
 
 	let fields = fields.iter().map(|(_, field, _, _)| field);
 
+	// FIXME: decouple lifetimes from actual generics with trait boundaries
 	let tokens = quote! {
 		impl#generics ramhorns::Context for #name#generics {
 			const FIELDS: &'static [&'static str] = &[ #( #names ),* ];
@@ -90,17 +91,17 @@ pub fn logos(input: TokenStream) -> TokenStream {
 				tpl.capacity_hint() #( + self.#fields.len() )*
 			}
 
-			fn render_escaped(&self, hash: u64, buf: &mut String) {
+			fn render_escaped<W: std::io::Write>(&self, hash: u64, encoder: &mut ramhorns::Encoder<W>) -> std::io::Result<()> {
 				match hash {
 					#( #render_escaped )*
-					_ => {}
+					_ => Ok(())
 				}
 			}
 
-			fn render_unescaped(&self, hash: u64, buf: &mut String) {
+			fn render_unescaped<W: std::io::Write>(&self, hash: u64, encoder: &mut ramhorns::Encoder<W>) -> std::io::Result<()> {
 				match hash {
 					#( #render_unescaped )*
-					_ => {}
+					_ => Ok(())
 				}
 			}
 		}

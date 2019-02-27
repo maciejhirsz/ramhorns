@@ -32,11 +32,11 @@ assert_eq!(rendered, "<h1>Hello Ramhorns</h1><div>Well, that was easy!</div>")
 
 ```
 running 5 tests
-test a_simple_ramhorns   ... bench:          69 ns/iter (+/- 5)
-test b_simple_wearte     ... bench:          78 ns/iter (+/- 8)
-test c_simple_askama     ... bench:         186 ns/iter (+/- 26)
-test d_simple_mustache   ... bench:         716 ns/iter (+/- 45)
-test e_simple_handlebars ... bench:       2,979 ns/iter (+/- 129)
+test a_simple_ramhorns   ... bench:          74 ns/iter (+/- 3)
+test b_simple_wearte     ... bench:          77 ns/iter (+/- 5)
+test c_simple_askama     ... bench:         194 ns/iter (+/- 26)
+test d_simple_mustache   ... bench:         754 ns/iter (+/- 31)
+test e_simple_handlebars ... bench:       3,073 ns/iter (+/- 212)
 ```
 
 Worth noting here is that both [**Askama**](https://github.com/djc/askama) and
