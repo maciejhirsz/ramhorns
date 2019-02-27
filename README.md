@@ -1,13 +1,20 @@
-![Picture of a ram with horns](ram.jpg)
+<img src="ramhorns.svg" alt="Ramhorns logo" width="250" align="right">
 
 # [WIP] Ramhorns
 
-Experimental [**`{{ mustache }}`**](https://mustache.github.io/)-ish implementation.
+Experimental [**Mustache**](https://mustache.github.io/) template engine implementation
+in pure Rust.
 
-**Ramhorns** loads and processes templates **at runtime**. It comes with a derive
-macro for structs which allows templates to be rendered from native Rust data
-structures without doing temporary allocations, intermediate hashmaps and what
-have you.
+**Ramhorns** loads and processes templates **at runtime**. It comes with a derive macro
+which allows for templates to be rendered from native Rust data structures without doing
+temporary allocations, intermediate `HashMap`s or what have you.
+
+With a touch of magic 🎩, the power of friendship 🥂, and a sparkle of
+[FNV hashing](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function)
+✨, render times easily compete with static template engines like
+[**Askama**](https://github.com/djc/askama).
+
+What else do you want, a sticker?
 
 ```rust
 use ramhorns::{Template, Context};
@@ -28,7 +35,15 @@ let rendered = tpl.render(&Post {
 assert_eq!(rendered, "<h1>Hello Ramhorns</h1><div>Well, that was easy!</div>")
 ```
 
-# Benches
+## TODOS
+
++ [x] Parsing sections `{{#foo}} ... {{/foo}}`.
++ [x] Parsing inverse sections `{{^foo}} ... {{/foo}}`.
++ [ ] Rendering sections `{{#foo}} ... {{/foo}}`.
++ [ ] Rendering inverse sections `{{^foo}} ... {{/foo}}`.
++ [ ] Handle all types, not just strings, via the `Display` trait.
+
+## Benches
 
 ```
 running 5 tests
@@ -40,11 +55,16 @@ test e_simple_handlebars ... bench:       3,073 ns/iter (+/- 212)
 ```
 
 Worth noting here is that both [**Askama**](https://github.com/djc/askama) and
-[**wearte**](https://github.com/dgriffen/wearte) (which, AFAIK, is a fork of Askama)
+[**wearte**](https://github.com/dgriffen/wearte) (a fork of a fork of **Askama**)
 are processing templates at compile time and generate static rust code for rendering.
 This is great for performance, but it also means you can't swap out templates without
 recompiling your Rust binaries. In some cases, like for a static site generator, this
 is unfortunately a deal breaker.
 
 The [**Mustache** crate](https://github.com/nickel-org/rust-mustache) is the closest
-thing to **Ramhorns** in design.
+thing to **Ramhorns** in design and feature set.
+
+## License
+
+Ramhorns is free software, and is released under the terms of the GNU General Public
+License version 3. See [LICENSE](LICENSE).
