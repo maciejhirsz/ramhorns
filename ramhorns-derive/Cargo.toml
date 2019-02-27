@@ -1,6 +1,6 @@
 [package]
 name = "ramhorns-derive"
-version = "0.0.0"
+version = "0.1.0"
 authors = ["Maciej Hirsz <maciej.hirsz@pm.me>"]
 license = "GPL-3.0"
 edition = "2018"
@@ -15,6 +15,6 @@ proc-macro = true
 
 [dependencies]
 fnv = "1.0"
-syn = { version = "0.15", features = ["extra-traits", "full"] }
+syn = { version = "0.15", features = ["derive"] }
 quote = "0.6"
 proc-macro2 = "0.4"
