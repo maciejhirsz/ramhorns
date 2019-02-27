@@ -14,15 +14,15 @@ use ramhorns::{Template, Context};
 
 #[derive(Context)]
 struct Post<'a> {
-	title: &'a str,
-	body: &'a str,
+    title: &'a str,
+    body: &'a str,
 }
 
 let tpl = Template::new("<h1>{{title}}</h1><div>{{body}}</div>");
 
 let rendered = tpl.render(&Post {
-	title: "Hello Ramhorns",
-	body: "Well, that was easy!",
+    title: "Hello Ramhorns",
+    body: "Well, that was easy!",
 });
 
 assert_eq!(rendered, "<h1>Hello Ramhorns</h1><div>Well, that was easy!</div>")
