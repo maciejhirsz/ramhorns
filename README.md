@@ -16,7 +16,14 @@ With a touch of magic 🎩, the power of friendship 🥂, and a sparkle of
 
 What else do you want, a sticker?
 
-## Example
+### Cargo
+
+```
+[dependencies]
+ramhorns = "0.1"
+```
+
+### Example
 
 ```rust
 use ramhorns::{Template, Context};
@@ -65,7 +72,7 @@ assert_eq!(rendered, "<h1>My Awesome Blog!</h1>\
                       </article>");
 ```
 
-## TODOS
+### TODOS
 
 + [x] Rendering `&str` and `String` into `{{variables}}`.
 + [x] Unescaped printing with `{{{tripple-brace}}}`.
@@ -73,7 +80,7 @@ assert_eq!(rendered, "<h1>My Awesome Blog!</h1>\
 + [x] Rendering inverse sections `{{^foo}} ... {{/foo}}`.
 + [ ] Handle printing of all types, not just strings, via the `Display` trait.
 
-## Benches
+### Benches
 
 ```
 running 5 tests
@@ -94,7 +101,7 @@ is unfortunately a deal breaker.
 The [**Mustache** crate](https://github.com/nickel-org/rust-mustache) is the closest
 thing to **Ramhorns** in design and feature set.
 
-## License
+### License
 
 Ramhorns is free software, and is released under the terms of the GNU General Public
 License version 3. See [LICENSE](LICENSE).
