@@ -20,7 +20,7 @@ What else do you want, a sticker?
 
 ```
 [dependencies]
-ramhorns = "0.1"
+ramhorns = "0.2"
 ```
 
 ### Example
