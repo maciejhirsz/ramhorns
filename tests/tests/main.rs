@@ -97,6 +97,31 @@ fn simple_render_with_strings() {
 }
 
 #[test]
+fn simple_render_different_types() {
+    #[derive(Context)]
+    struct MeaningOfLife {
+        meaning: i32,
+        truth: bool,
+    }
+
+    let source = "The meaning of life is {{meaning}}? {{truth}}!";
+    let tpl = Template::new(source);
+
+    let correct = tpl.render(&MeaningOfLife {
+        meaning: 42,
+        truth: true,
+    });
+
+    let incorrect = tpl.render(&MeaningOfLife {
+        meaning: -9001,
+        truth: false,
+    });
+
+    assert_eq!(&correct, "The meaning of life is 42? true!");
+    assert_eq!(&incorrect, "The meaning of life is -9001? false!");
+}
+
+#[test]
 fn can_render_sections_from_bool() {
     #[derive(Context)]
     struct Conditional {

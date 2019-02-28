@@ -20,7 +20,7 @@ extern crate proc_macro;
 
 use quote::quote;
 use proc_macro::TokenStream;
-use syn::{ItemStruct, Field, Fields, Type};
+use syn::{ItemStruct, Field, Fields};
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
 use fnv::FnvHasher;
@@ -66,50 +66,46 @@ pub fn logos(input: TokenStream) -> TokenStream {
 
             let hash = hasher.finish();
 
-            (name, token, hash, deref_str(&field.ty))
+            (name, token, hash)
         })
         .collect::<Vec<_>>();
 
     fields.sort_unstable_by(|a, b| (a.2).cmp(&b.2));
 
-    let render_field_escaped = fields.iter().filter_map(|(_, field, hash, deref)| {
-        deref.as_ref().map(|deref| {
-            quote! {
-                #hash => encoder.write_escaped(#deref self.#field),
-            }
-        })
+    let render_field_escaped = fields.iter().map(|(_, field, hash)| {
+        quote! {
+            #hash => self.#field.render_escaped(encoder),
+        }
     });
 
-    let render_field_unescaped = fields.iter().filter_map(|(_, field, hash, deref)| {
-        deref.as_ref().map(|deref| {
-            quote! {
-                #hash => encoder.write(#deref self.#field),
-            }
-        })
+    let render_field_unescaped = fields.iter().map(|(_, field, hash)| {
+        quote! {
+            #hash => self.#field.render_unescaped(encoder),
+        }
     });
 
-    let render_field_section = fields.iter().map(|(_, field, hash, _)| {
+    let render_field_section = fields.iter().map(|(_, field, hash)| {
         quote! {
             #hash => self.#field.render_section(section, encoder),
         }
     });
 
-    let render_field_inverse = fields.iter().map(|(_, field, hash, _)| {
+    let render_field_inverse = fields.iter().map(|(_, field, hash)| {
         quote! {
             #hash => self.#field.render_inverse(section, encoder),
         }
     });
 
-    let fields = fields.iter().filter_map(|(_, field, _, deref)| deref.as_ref().map(|_| field));
+    let fields = fields.iter().map(|(_, field, _)| field);
 
     // FIXME: decouple lifetimes from actual generics with trait boundaries
     let tokens = quote! {
         impl#generics ramhorns::Context for #name#generics {
             fn capacity_hint(&self, tpl: &ramhorns::Template) -> usize {
-                tpl.capacity_hint() #( + self.#fields.len() )*
+                tpl.capacity_hint() #( + self.#fields.capacity_hint(tpl) )*
             }
 
-            fn render_field_escaped<E>(&self, hash: u64, encoder: &mut E) -> ramhorns::encoding::Result
+            fn render_field_escaped<E>(&self, hash: u64, encoder: &mut E) -> Result<(), E::Error>
             where
                 E: ramhorns::encoding::Encoder,
             {
@@ -119,7 +115,7 @@ pub fn logos(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn render_field_unescaped<E>(&self, hash: u64, encoder: &mut E) -> ramhorns::encoding::Result
+            fn render_field_unescaped<E>(&self, hash: u64, encoder: &mut E) -> Result<(), E::Error>
             where
                 E: ramhorns::encoding::Encoder,
             {
@@ -129,7 +125,7 @@ pub fn logos(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn render_field_section<'section, E>(&self, hash: u64, section: ramhorns::Section<'section>, encoder: &mut E) -> ramhorns::encoding::Result
+            fn render_field_section<'section, E>(&self, hash: u64, section: ramhorns::Section<'section>, encoder: &mut E) -> Result<(), E::Error>
             where
                 E: ramhorns::encoding::Encoder,
             {
@@ -139,7 +135,7 @@ pub fn logos(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn render_field_inverse<'section, E>(&self, hash: u64, section: ramhorns::Section<'section>, encoder: &mut E) -> ramhorns::encoding::Result
+            fn render_field_inverse<'section, E>(&self, hash: u64, section: ramhorns::Section<'section>, encoder: &mut E) -> Result<(), E::Error>
             where
                 E: ramhorns::encoding::Encoder,
             {
@@ -154,27 +150,4 @@ pub fn logos(input: TokenStream) -> TokenStream {
     // panic!("{}", tokens);
 
     TokenStream::from(tokens).into()
-}
-
-fn deref_str(mut ty: &Type) -> Option<proc_macro2::TokenStream> {
-    let mut refs = -1i32;
-
-    while let Type::Reference(r) = ty {
-        refs += 1;
-        ty = &*r.elem;
-    }
-
-    match quote!(#ty).to_string().as_str() {
-        "str" | "String" => {},
-        _ => return None
-    }
-
-    match refs {
-        4 => Some(quote!(***)),
-        3 => Some(quote!(**)),
-        1 => Some(quote!(*)),
-        0 => Some(quote!()),
-        -1 => Some(quote!(&)),
-        _ => None,
-    }
 }

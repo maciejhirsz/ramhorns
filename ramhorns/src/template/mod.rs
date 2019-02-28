@@ -11,15 +11,17 @@ mod parse;
 mod section;
 
 use std::hash::Hasher;
-use std::io::Write;
+use std::io;
 
 use fnv::FnvHasher;
 
 use crate::Context;
-use crate::encoding::{self as en, Encoder, IOEncoder};
+use crate::encoding::{Encoder, EscapingIOEncoder};
 
 pub use section::Section;
 
+/// A preprocessed form of the plain text template, ready to be rendered
+/// with data contained in types implementing the `Context` trait.
 pub struct Template<'tpl> {
     /// Parsed blocks!
     blocks: Vec<Block<'tpl>>,
@@ -32,6 +34,7 @@ pub struct Template<'tpl> {
 }
 
 impl<'tpl> Template<'tpl> {
+    /// Create a new `Template` out of the source.
     pub fn new(source: &'tpl str) -> Self {
         let mut iter = source.as_bytes()
             .get(..source.len() - 1)
@@ -54,22 +57,26 @@ impl<'tpl> Template<'tpl> {
         tpl
     }
 
+    /// Estimate how big of a buffer should be allocated to render this `Template`.
     pub fn capacity_hint(&self) -> usize {
         self.capacity_hint + self.tail.len()
     }
 
-    pub fn render_to_writer<C, W>(&self, ctx: &C, writer: &mut W) -> en::Result
+    /// Render this `Template` with a given `Context` to a writer. This is useful if you
+    /// want to render templates directly to files or network.
+    pub fn render_to_writer<C, W>(&self, ctx: &C, writer: &mut W) -> io::Result<()>
     where
         C: Context,
-        W: Write,
+        W: io::Write,
     {
-        let mut encoder = IOEncoder::new(writer);
+        let mut encoder = EscapingIOEncoder::new(writer);
 
         Section::new(&self.blocks).render_once(ctx, &mut encoder)?;
 
-        encoder.write(self.tail)
+        encoder.write_unescaped(self.tail)
     }
 
+    /// Render this `Template` with a given `Context` to a `String`.
     pub fn render<C: crate::Context>(&self, ctx: &C) -> String {
         let mut capacity = ctx.capacity_hint(self);
 
@@ -89,11 +96,22 @@ impl<'tpl> Template<'tpl> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tag {
+    /// `{{escaped}}` tag
     Escaped,
+
+    /// `{{{unescaped}}}` tag
     Unescaped,
+
+    /// `{{#section}}` opening tag (with number of subsequent blocks it contains)
     Section(usize),
+
+    /// `{{^inverse}}` section opening tag (with number of subsequent blocks it contains)
     Inverse(usize),
+
+    /// `{{/closing}}` section tag
     Closing,
+
+    /// {{!comment}}` tag
     Comment,
 }
 

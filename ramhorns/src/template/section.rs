@@ -1,7 +1,9 @@
 use super::{Block, Tag};
 use crate::Context;
-use crate::encoding::{Encoder, Result};
+use crate::encoding::Encoder;
 
+/// A section of a `Template` that can be rendered individually, usually delimited by
+/// `{{#section}} ... `{{/section}}` tags.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Section<'section> {
     blocks: &'section [Block<'section>],
@@ -14,7 +16,9 @@ impl<'section> Section<'section> {
         }
     }
 
-    pub fn render_once<C, E>(&self, ctx: &C, encoder: &mut E) -> Result
+    /// Render this section once to the provided `Encoder`. Some `Context`s will call
+    /// this method multiple times (to render a list of elements).
+    pub fn render_once<C, E>(&self, ctx: &C, encoder: &mut E) -> Result<(), E::Error>
     where
         C: Context,
         E: Encoder,
@@ -24,7 +28,7 @@ impl<'section> Section<'section> {
         while let Some(block) = self.blocks.get(index) {
             index += 1;
 
-            encoder.write(block.html)?;
+            encoder.write_unescaped(block.html)?;
 
             match block.tag {
                 Tag::Escaped => ctx.render_field_escaped(block.hash, encoder)?,
