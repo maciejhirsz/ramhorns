@@ -1,6 +1,6 @@
 [package]
 name = "ramhorns"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Maciej Hirsz <maciej.hirsz@pm.me>"]
 license = "GPL-3.0"
 edition = "2018"
@@ -11,7 +11,7 @@ readme = "../README.md"
 
 [dependencies]
 fnv = "1.0"
-ramhorns-derive = { version = "0.1", optional = true }
+ramhorns-derive = { path = "../ramhorns-derive", optional = true }
 
 [features]
 default = ["export_derive"]

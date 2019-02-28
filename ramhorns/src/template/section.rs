@@ -1,8 +1,9 @@
 use super::{Block, Tag};
-use crate::{Context, Encoder};
+use crate::Context;
+use crate::encoding::Encoder;
 
-use std::io::{self, Write};
-
+/// A section of a `Template` that can be rendered individually, usually delimited by
+/// `{{#section}} ... `{{/section}}` tags.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Section<'section> {
     blocks: &'section [Block<'section>],
@@ -15,17 +16,19 @@ impl<'section> Section<'section> {
         }
     }
 
-    pub fn render_once<C, W>(&self, ctx: &C, encoder: &mut Encoder<W>) -> io::Result<()>
+    /// Render this section once to the provided `Encoder`. Some `Context`s will call
+    /// this method multiple times (to render a list of elements).
+    pub fn render_once<C, E>(&self, ctx: &C, encoder: &mut E) -> Result<(), E::Error>
     where
         C: Context,
-        W: Write,
+        E: Encoder,
     {
         let mut index = 0;
 
         while let Some(block) = self.blocks.get(index) {
             index += 1;
 
-            encoder.write(block.html)?;
+            encoder.write_unescaped(block.html)?;
 
             match block.tag {
                 Tag::Escaped => ctx.render_field_escaped(block.hash, encoder)?,
@@ -48,19 +51,3 @@ impl<'section> Section<'section> {
         Ok(())
     }
 }
-
-// pub trait SectionContext {
-//     fn render_section<'section, W: Write>(&self, _section: Section<'section>, _encoder: &mut Encoder<W>) -> io::Result<()> {
-//         Ok(())
-//     }
-
-//     fn render_inverse<'section, W: Write>(&self, _section: Section<'section>, _encoder: &mut Encoder<W>) -> io::Result<()> {
-//         Ok(())
-//     }
-// }
-
-// impl<C: Context> SectionContext for C {
-//     fn render_section<'section, W: Write>(&self, section: Section<'section>, encoder: &mut Encoder<W>) -> io::Result<()> {
-//         section.render_once(self, encoder)
-//     }
-// }

@@ -11,14 +11,17 @@ mod parse;
 mod section;
 
 use std::hash::Hasher;
-use std::io::{self, Write};
+use std::io;
 
 use fnv::FnvHasher;
 
-use crate::Encoder;
+use crate::Context;
+use crate::encoding::{Encoder, EscapingIOEncoder};
 
 pub use section::Section;
 
+/// A preprocessed form of the plain text template, ready to be rendered
+/// with data contained in types implementing the `Context` trait.
 pub struct Template<'tpl> {
     /// Parsed blocks!
     blocks: Vec<Block<'tpl>>,
@@ -31,6 +34,7 @@ pub struct Template<'tpl> {
 }
 
 impl<'tpl> Template<'tpl> {
+    /// Create a new `Template` out of the source.
     pub fn new(source: &'tpl str) -> Self {
         let mut iter = source.as_bytes()
             .get(..source.len() - 1)
@@ -53,48 +57,61 @@ impl<'tpl> Template<'tpl> {
         tpl
     }
 
+    /// Estimate how big of a buffer should be allocated to render this `Template`.
     pub fn capacity_hint(&self) -> usize {
         self.capacity_hint + self.tail.len()
     }
 
-    pub fn render_to<Context, Writer>(&self, ctx: &Context, writer: Writer) -> io::Result<()>
+    /// Render this `Template` with a given `Context` to a writer. This is useful if you
+    /// want to render templates directly to files or network.
+    pub fn render_to_writer<C, W>(&self, ctx: &C, writer: &mut W) -> io::Result<()>
     where
-        Context: crate::Context,
-        Writer: Write,
+        C: Context,
+        W: io::Write,
     {
-        let mut encoder = Encoder::new(writer);
+        let mut encoder = EscapingIOEncoder::new(writer);
 
         Section::new(&self.blocks).render_once(ctx, &mut encoder)?;
 
-        encoder.write(self.tail)
+        encoder.write_unescaped(self.tail)
     }
 
-    pub fn render<Context: crate::Context>(&self, ctx: &Context) -> String {
+    /// Render this `Template` with a given `Context` to a `String`.
+    pub fn render<C: crate::Context>(&self, ctx: &C) -> String {
         let mut capacity = ctx.capacity_hint(self);
 
         // Add extra 25% extra capacity for HTML escapes and an odd double variable use.
         capacity += capacity / 4;
 
-        let mut buf = Vec::with_capacity(capacity);
+        let mut buf = String::with_capacity(capacity);
 
         // Ignore the result, cannot fail
-        let _ = self.render_to(ctx, &mut buf);
+        let _ = Section::new(&self.blocks).render_once(ctx, &mut buf);
 
-        unsafe {
-            // Encoder guarantees that all writes are UTF8
-            String::from_utf8_unchecked(buf)
-        }
+        buf.push_str(self.tail);
+        buf
     }
 }
 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tag {
+    /// `{{escaped}}` tag
     Escaped,
+
+    /// `{{{unescaped}}}` tag
     Unescaped,
+
+    /// `{{#section}}` opening tag (with number of subsequent blocks it contains)
     Section(usize),
+
+    /// `{{^inverse}}` section opening tag (with number of subsequent blocks it contains)
     Inverse(usize),
+
+    /// `{{/closing}}` section tag
     Closing,
+
+    /// {{!comment}}` tag
     Comment,
 }
 

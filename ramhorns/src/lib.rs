@@ -74,35 +74,15 @@
 //!                       </article>");
 //! ```
 
+#![warn(missing_docs)]
+
 mod template;
 mod context;
-mod encoder;
+
+pub mod encoding;
 
 pub use template::{Template, Section};
 pub use context::Context;
-pub use encoder::Encoder;
 
 #[cfg(feature = "export_derive")]
 pub use ramhorns_derive::Context;
-
-/// Utility for writing slices into a buffer, escaping HTML characters
-pub fn escape(buf: &mut String, part: &str) {
-    let mut start = 0;
-
-    for (idx, byte) in part.bytes().enumerate() {
-        let replace = match byte {
-            b'<' => "&lt;",
-            b'>' => "&gt;",
-            b'&' => "&amp;",
-            b'"' => "&quot;",
-            _ => continue,
-        };
-
-        buf.push_str(&part[start..idx]);
-        buf.push_str(replace);
-
-        start = idx + 1;
-    }
-
-    buf.push_str(&part[start..]);
-}

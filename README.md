@@ -1,4 +1,4 @@
-<img src="ramhorns.svg" alt="Ramhorns logo" width="250" align="right">
+<img src="https://raw.githubusercontent.com/maciejhirsz/ramhorns/master/ramhorns.svg?sanitize=true" alt="Ramhorns logo" width="250" align="right">
 
 # Ramhorns
 
@@ -20,7 +20,7 @@ What else do you want, a sticker?
 
 ```
 [dependencies]
-ramhorns = "0.1"
+ramhorns = "0.2"
 ```
 
 ### Example
@@ -72,23 +72,22 @@ assert_eq!(rendered, "<h1>My Awesome Blog!</h1>\
                       </article>");
 ```
 
-### TODOS
+### Features so far
 
-+ [x] Rendering `&str` and `String` into `{{variables}}`.
-+ [x] Unescaped printing with `{{{tripple-brace}}}`.
-+ [x] Rendering sections `{{#foo}} ... {{/foo}}`.
-+ [x] Rendering inverse sections `{{^foo}} ... {{/foo}}`.
-+ [ ] Handle printing of all types, not just strings, via the `Display` trait.
++ Rendering common types, such as `&str`, `String`, `bool`s, and numbers into `{{variables}}`.
++ Unescaped printing with `{{{tripple-brace}}}`.
++ Rendering sections `{{#foo}} ... {{/foo}}`.
++ Rendering inverse sections `{{^foo}} ... {{/foo}}`.
 
 ### Benches
 
 ```
 running 5 tests
-test a_simple_ramhorns   ... bench:          97 ns/iter (+/- 4)
-test b_simple_wearte     ... bench:          95 ns/iter (+/- 7)
-test c_simple_askama     ... bench:         213 ns/iter (+/- 10)
-test d_simple_mustache   ... bench:         842 ns/iter (+/- 41)
-test e_simple_handlebars ... bench:       3,272 ns/iter (+/- 224)
+test a_simple_ramhorns   ... bench:          64 ns/iter (+/- 4)
+test b_simple_wearte     ... bench:          72 ns/iter (+/- 24)
+test c_simple_askama     ... bench:         181 ns/iter (+/- 9)
+test d_simple_mustache   ... bench:         736 ns/iter (+/- 133)
+test e_simple_handlebars ... bench:       2,889 ns/iter (+/- 118)
 ```
 
 Worth noting here is that both [**Askama**](https://github.com/djc/askama) and
