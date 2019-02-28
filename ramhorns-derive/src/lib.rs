@@ -109,28 +109,40 @@ pub fn logos(input: TokenStream) -> TokenStream {
                 tpl.capacity_hint() #( + self.#fields.len() )*
             }
 
-            fn render_field_escaped<W: std::io::Write>(&self, hash: u64, encoder: &mut ramhorns::Encoder<W>) -> std::io::Result<()> {
+            fn render_field_escaped<E>(&self, hash: u64, encoder: &mut E) -> ramhorns::encoding::Result
+            where
+                E: ramhorns::encoding::Encoder,
+            {
                 match hash {
                     #( #render_field_escaped )*
                     _ => Ok(())
                 }
             }
 
-            fn render_field_unescaped<W: std::io::Write>(&self, hash: u64, encoder: &mut ramhorns::Encoder<W>) -> std::io::Result<()> {
+            fn render_field_unescaped<E>(&self, hash: u64, encoder: &mut E) -> ramhorns::encoding::Result
+            where
+                E: ramhorns::encoding::Encoder,
+            {
                 match hash {
                     #( #render_field_unescaped )*
                     _ => Ok(())
                 }
             }
 
-            fn render_field_section<'section, W: std::io::Write>(&self, hash: u64, section: ramhorns::Section<'section>, encoder: &mut ramhorns::Encoder<W>) -> std::io::Result<()> {
+            fn render_field_section<'section, E>(&self, hash: u64, section: ramhorns::Section<'section>, encoder: &mut E) -> ramhorns::encoding::Result
+            where
+                E: ramhorns::encoding::Encoder,
+            {
                 match hash {
                     #( #render_field_section )*
                     _ => Ok(())
                 }
             }
 
-            fn render_field_inverse<'section, W: std::io::Write>(&self, hash: u64, section: ramhorns::Section<'section>, encoder: &mut ramhorns::Encoder<W>) -> std::io::Result<()> {
+            fn render_field_inverse<'section, E>(&self, hash: u64, section: ramhorns::Section<'section>, encoder: &mut E) -> ramhorns::encoding::Result
+            where
+                E: ramhorns::encoding::Encoder,
+            {
                 match hash {
                     #( #render_field_inverse )*
                     _ => Ok(())

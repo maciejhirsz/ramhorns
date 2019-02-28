@@ -11,11 +11,12 @@ mod parse;
 mod section;
 
 use std::hash::Hasher;
-use std::io::{self, Write};
+use std::io::Write;
 
 use fnv::FnvHasher;
 
-use crate::Encoder;
+use crate::Context;
+use crate::encoding::{self as en, Encoder, IOEncoder};
 
 pub use section::Section;
 
@@ -57,33 +58,31 @@ impl<'tpl> Template<'tpl> {
         self.capacity_hint + self.tail.len()
     }
 
-    pub fn render_to<Context, Writer>(&self, ctx: &Context, writer: Writer) -> io::Result<()>
+    pub fn render_to_writer<C, W>(&self, ctx: &C, writer: &mut W) -> en::Result
     where
-        Context: crate::Context,
-        Writer: Write,
+        C: Context,
+        W: Write,
     {
-        let mut encoder = Encoder::new(writer);
+        let mut encoder = IOEncoder::new(writer);
 
         Section::new(&self.blocks).render_once(ctx, &mut encoder)?;
 
         encoder.write(self.tail)
     }
 
-    pub fn render<Context: crate::Context>(&self, ctx: &Context) -> String {
+    pub fn render<C: crate::Context>(&self, ctx: &C) -> String {
         let mut capacity = ctx.capacity_hint(self);
 
         // Add extra 25% extra capacity for HTML escapes and an odd double variable use.
         capacity += capacity / 4;
 
-        let mut buf = Vec::with_capacity(capacity);
+        let mut buf = String::with_capacity(capacity);
 
         // Ignore the result, cannot fail
-        let _ = self.render_to(ctx, &mut buf);
+        let _ = Section::new(&self.blocks).render_once(ctx, &mut buf);
 
-        unsafe {
-            // Encoder guarantees that all writes are UTF8
-            String::from_utf8_unchecked(buf)
-        }
+        buf.push_str(self.tail);
+        buf
     }
 }
 
