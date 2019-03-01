@@ -11,17 +11,20 @@ mod parse;
 mod section;
 
 use std::hash::Hasher;
+use std::fs::File;
 use std::io;
+use std::path::Path;
+
+use crate::{Content, Error};
+use crate::encoding::{Encoder, EscapingIOEncoder};
 
 use fnv::FnvHasher;
-
-use crate::Context;
-use crate::encoding::{Encoder, EscapingIOEncoder};
+use cowvec::CowStr;
 
 pub use section::Section;
 
 /// A preprocessed form of the plain text template, ready to be rendered
-/// with data contained in types implementing the `Context` trait.
+/// with data contained in types implementing the `Content` trait.
 pub struct Template<'tpl> {
     /// Parsed blocks!
     blocks: Vec<Block<'tpl>>,
@@ -31,30 +34,51 @@ pub struct Template<'tpl> {
 
     /// Tailing html that isn't part of any `Block`
     tail: &'tpl str,
+
+    /// Source from which this template was parsed.
+    source: CowStr<'tpl>,
 }
 
 impl<'tpl> Template<'tpl> {
     /// Create a new `Template` out of the source.
-    pub fn new(source: &'tpl str) -> Self {
-        let mut iter = source.as_bytes()
-            .get(..source.len() - 1)
-            .unwrap_or(&[])
-            .iter()
-            .map(|b| unsafe { &*(b as *const u8 as *const [u8; 2]) })
-            .enumerate();
-
+    ///
+    /// + If `Source` is a `&str`, this `Template` will borrow it with appropriate lifetime.
+    /// + If `Source` is a `String`, this `Template` will take it's ownership (The `'tpl` lifetime will be `'static`).
+    pub fn new<Source>(source: Source) -> Result<Self, Error>
+    where
+        Source: Into<CowStr<'tpl>>,
+    {
         let mut tpl = Template {
             blocks: Vec::new(),
             capacity_hint: 0,
             tail: "",
+            source: source.into(),
         };
+
+        // This is allows `Block`s inside this `Template` to be references of the `source` field.
+        // This is safe as long as the `source` field is never mutated or moved.
+        let source: &'tpl str = unsafe {
+            use std::{slice, str};
+
+            let ptr = tpl.source.as_ptr();
+            let len = tpl.source.len();
+
+            str::from_utf8_unchecked(slice::from_raw_parts(ptr, len))
+        };
+
+        let mut iter = source.as_bytes()
+            .get(..tpl.source.len().saturating_sub(1))
+            .unwrap_or(&[])
+            .iter()
+            .map(|b| unsafe { &*(b as *const u8 as *const [u8; 2]) }) // Because we iterate up till last byte,
+            .enumerate();                                             // this is safe.
 
         let mut last = 0;
 
         tpl.parse(source, &mut iter, &mut last, None);
         tpl.tail = &source[last..];
 
-        tpl
+        Ok(tpl)
     }
 
     /// Estimate how big of a buffer should be allocated to render this `Template`.
@@ -62,22 +86,8 @@ impl<'tpl> Template<'tpl> {
         self.capacity_hint + self.tail.len()
     }
 
-    /// Render this `Template` with a given `Context` to a writer. This is useful if you
-    /// want to render templates directly to files or network.
-    pub fn render_to_writer<C, W>(&self, ctx: &C, writer: &mut W) -> io::Result<()>
-    where
-        C: Context,
-        W: io::Write,
-    {
-        let mut encoder = EscapingIOEncoder::new(writer);
-
-        Section::new(&self.blocks).render_once(ctx, &mut encoder)?;
-
-        encoder.write_unescaped(self.tail)
-    }
-
-    /// Render this `Template` with a given `Context` to a `String`.
-    pub fn render<C: crate::Context>(&self, ctx: &C) -> String {
+    /// Render this `Template` with a given `Content` to a `String`.
+    pub fn render<C: crate::Content>(&self, ctx: &C) -> String {
         let mut capacity = ctx.capacity_hint(self);
 
         // Add extra 25% extra capacity for HTML escapes and an odd double variable use.
@@ -90,6 +100,61 @@ impl<'tpl> Template<'tpl> {
 
         buf.push_str(self.tail);
         buf
+    }
+
+    /// Render this `Template` with a given `Content` to a writer.
+    pub fn render_to_writer<W, C>(&self, writer: &mut W, ctx: &C) -> io::Result<()>
+    where
+        W: io::Write,
+        C: Content,
+    {
+        let mut encoder = EscapingIOEncoder::new(writer);
+
+        Section::new(&self.blocks).render_once(ctx, &mut encoder)?;
+
+        encoder.write_unescaped(self.tail)
+    }
+
+    /// Render this `Template` with a given `Content` to a file.
+    pub fn render_to_file<P, C>(&self, path: P, ctx: &C) -> io::Result<()>
+    where
+        P: AsRef<Path>,
+        C: Content,
+    {
+        use io::BufWriter;
+
+        let writer = BufWriter::new(File::create(path)?);
+        let mut encoder = EscapingIOEncoder::new(writer);
+
+        Section::new(&self.blocks).render_once(ctx, &mut encoder)?;
+
+        encoder.write_unescaped(self.tail)
+    }
+
+    /// Get a reference to a source this `Template` was created from.
+    pub fn source(&self) -> &str {
+        &self.source
+    }
+}
+
+impl Template<'static> {
+    /// Create a template from a file.
+    ///
+    /// ```no_run
+    /// # use ramhorns::Template;
+    /// let tpl = Template::from_file("./templates/my_template.html").unwrap();
+    /// ```
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+        use io::Read;
+
+        let mut file = File::open(path)?;
+        let len = file.metadata()?.len();
+
+        let mut buf = String::with_capacity(len as usize);
+
+        file.read_to_string(&mut buf)?;
+
+        Template::new(buf)
     }
 }
 
@@ -145,6 +210,13 @@ mod test {
     use super::*;
 
     #[test]
+    fn template_from_string_is_static() {
+        let tpl: Template<'static> = Template::new(String::from("Ramhorns")).unwrap();
+
+        assert_eq!(tpl.source(), "Ramhorns");
+    }
+
+    #[test]
     fn block_hashes_correctly() {
         assert_eq!(Block::new("", "test", Tag::Escaped), Block {
             html: "",
@@ -157,7 +229,7 @@ mod test {
     #[test]
     fn constructs_blocks_correctly() {
         let source = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{{body}}}</div>";
-        let tpl = Template::new(source);
+        let tpl = Template::new(source).unwrap();
 
         assert_eq!(&tpl.blocks, &[
             Block::new("<title>", "title", Tag::Escaped),
@@ -171,7 +243,7 @@ mod test {
     #[test]
     fn constructs_nested_sections_correctly() {
         let source = "<body><h1>{{ title }}</h1>{{#posts}}<article>{{name}}</article>{{/posts}}{{^posts}}<p>Nothing here :(</p>{{/posts}}</body>";
-        let tpl = Template::new(source);
+        let tpl = Template::new(source).unwrap();
 
 
         assert_eq!(&tpl.blocks, &[

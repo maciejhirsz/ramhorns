@@ -1,5 +1,5 @@
 use super::{Block, Tag};
-use crate::Context;
+use crate::Content;
 use crate::encoding::Encoder;
 
 /// A section of a `Template` that can be rendered individually, usually delimited by
@@ -16,11 +16,11 @@ impl<'section> Section<'section> {
         }
     }
 
-    /// Render this section once to the provided `Encoder`. Some `Context`s will call
+    /// Render this section once to the provided `Encoder`. Some `Content`s will call
     /// this method multiple times (to render a list of elements).
     pub fn render_once<C, E>(&self, ctx: &C, encoder: &mut E) -> Result<(), E::Error>
     where
-        C: Context,
+        C: Content,
         E: Encoder,
     {
         let mut index = 0;

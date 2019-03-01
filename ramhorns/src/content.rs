@@ -12,14 +12,14 @@ use crate::encoding::Encoder;
 
 /// Trait allowing the rendering to quickly access data stored in the type that
 /// implements it. You needn't worry about implementing it, in virtually all
-/// cases the `#[derive(Context)]` attribute above your types should be sufficient.
-pub trait Context: Sized {
-    /// Marks whether this context is truthy. Used when attempting to render a section.
+/// cases the `#[derive(Content)]` attribute above your types should be sufficient.
+pub trait Content: Sized {
+    /// Marks whether this content is truthy. Used when attempting to render a section.
     fn is_truthy(&self) -> bool {
         true
     }
 
-    /// How much capacity is _likely_ required for all the data in this `Context`
+    /// How much capacity is _likely_ required for all the data in this `Content`
     /// for a given `Template`.
     fn capacity_hint(&self, _tpl: &Template) -> usize {
         0
@@ -106,7 +106,7 @@ pub trait Context: Sized {
     }
 }
 
-impl Context for &str {
+impl Content for &str {
     fn is_truthy(&self) -> bool {
         self.len() != 0
     }
@@ -130,7 +130,7 @@ impl Context for &str {
     }
 }
 
-impl Context for String {
+impl Content for String {
     fn is_truthy(&self) -> bool {
         self.len() != 0
     }
@@ -154,7 +154,7 @@ impl Context for String {
     }
 }
 
-impl Context for bool {
+impl Content for bool {
     fn is_truthy(&self) -> bool {
         *self
     }
@@ -178,7 +178,7 @@ impl Context for bool {
 macro_rules! impl_number_types {
     ($( $ty:ty ),*) => {
         $(
-            impl Context for $ty {
+            impl Content for $ty {
                 fn is_truthy(&self) -> bool {
                     *self != 0 as $ty
                 }
@@ -201,7 +201,7 @@ macro_rules! impl_number_types {
 
 impl_number_types!(u8, u16, u32, u64, usize, i8, i16, i32, i64, isize, f32, f64);
 
-impl<T: Context> Context for Option<T> {
+impl<T: Content> Content for Option<T> {
     fn is_truthy(&self) -> bool {
         self.is_some()
     }
@@ -247,7 +247,7 @@ impl<T: Context> Context for Option<T> {
     }
 }
 
-impl<T: Context, U> Context for Result<T, U> {
+impl<T: Content, U> Content for Result<T, U> {
     fn is_truthy(&self) -> bool {
         self.is_ok()
     }
@@ -293,7 +293,7 @@ impl<T: Context, U> Context for Result<T, U> {
     }
 }
 
-impl<T: Context> Context for Vec<T> {
+impl<T: Content> Content for Vec<T> {
     fn is_truthy(&self) -> bool {
         self.len() != 0
     }
@@ -310,7 +310,7 @@ impl<T: Context> Context for Vec<T> {
     }
 }
 
-impl<T: Context> Context for &[T] {
+impl<T: Content> Content for &[T] {
     fn is_truthy(&self) -> bool {
         self.len() != 0
     }

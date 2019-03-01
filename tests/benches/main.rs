@@ -2,13 +2,13 @@
 extern crate test;
 
 use test::{Bencher, black_box};
-use ramhorns::Context;
+use ramhorns::Content;
 use serde_derive::Serialize;
 use askama::Template;
 
 static SOURCE: &str = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{{body}}}</div>";
 
-#[derive(Context, Serialize, Template)]
+#[derive(Content, Serialize, Template)]
 #[template(source = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{body|safe}}</div>", ext = "html")]
 struct Post<'a> {
     title: &'a str,
@@ -19,7 +19,7 @@ struct Post<'a> {
 fn a_simple_ramhorns(b: &mut Bencher) {
     use ramhorns::Template;
 
-    let tpl = Template::new(SOURCE);
+    let tpl = Template::new(SOURCE).unwrap();
     let post = Post {
         title: "Hello, Ramhorns!",
         body: "This is a really simple test of the rendering!",
