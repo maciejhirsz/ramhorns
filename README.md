@@ -2,6 +2,10 @@
 
 # Ramhorns
 
+[![Travis shield](https://travis-ci.org/maciejhirsz/ramhorns.svg)](https://travis-ci.org/maciejhirsz/ramhorns)
+[![Crates.io version shield](https://img.shields.io/crates/v/ramhorns.svg)](https://crates.io/crates/ramhorns)
+[![Crates.io license shield](https://img.shields.io/crates/l/ramhorns.svg)](https://crates.io/crates/ramhorns)
+
 Experimental [**Mustache**](https://mustache.github.io/) template engine implementation
 in pure Rust.
 
@@ -16,7 +20,7 @@ With a touch of magic 🎩, the power of friendship 🥂, and a sparkle of
 
 What else do you want, a sticker?
 
-### Cargo
+### Cargo.toml
 
 ```toml
 [dependencies]
@@ -41,9 +45,9 @@ struct Blog<'a> {
 }
 
 // Standard Mustache action here
-let source ="<h1>{{title}}</h1>\
-             {{#posts}}<article><h2>{{title}}</h2><p>{{teaser}}</p></article>{{/posts}}\
-             {{^posts}}<p>No posts yet :(</p>{{/posts}}";
+let source = "<h1>{{title}}</h1>\
+              {{#posts}}<article><h2>{{title}}</h2><p>{{teaser}}</p></article>{{/posts}}\
+              {{^posts}}<p>No posts yet :(</p>{{/posts}}";
 
 let tpl = Template::new(source).unwrap();
 

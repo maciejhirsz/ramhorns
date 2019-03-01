@@ -43,9 +43,9 @@
 //! }
 //!
 //! // Standard Mustache action here
-//! let source ="<h1>{{title}}</h1>\
-//!              {{#posts}}<article><h2>{{title}}</h2><p>{{teaser}}</p></article>{{/posts}}\
-//!              {{^posts}}<p>No posts yet :(</p>{{/posts}}";
+//! let source = "<h1>{{title}}</h1>\
+//!               {{#posts}}<article><h2>{{title}}</h2><p>{{teaser}}</p></article>{{/posts}}\
+//!               {{^posts}}<p>No posts yet :(</p>{{/posts}}";
 //!
 //! let tpl = Template::new(source).unwrap();
 //!
