@@ -18,7 +18,7 @@ What else do you want, a sticker?
 
 ### Cargo
 
-```
+```toml
 [dependencies]
 ramhorns = "0.3"
 ```
