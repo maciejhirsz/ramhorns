@@ -6,8 +6,12 @@ pub enum Error {
     /// There was an error with the IO (only happens when parsing a file)
     Io(io::Error),
 
-    /// There was a parsing error.
-    ParsingError,
+    /// Parser was expecting a tag closing a section `{{/foo}}`,
+    /// but never found it or found a different one.
+    UnclosedSection(Box<str>),
+
+    /// Parser was expecting to find the closing braces of a tag `}}`, but never found it.
+    UnclosedTag,
 }
 
 impl From<io::Error> for Error {
@@ -19,8 +23,26 @@ impl From<io::Error> for Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Error::Io(err) => err.fmt(f),
-            Error::ParsingError => write!(f, "There was an error parsing the template!"),
+            Error::Io(err) => {
+                err.fmt(f)
+            },
+            Error::UnclosedSection(name) => {
+                write!(f, "Section not closed properly, was expecting {{{{/{}}}}}", name)
+            },
+            Error::UnclosedTag => {
+                write!(f, "Couldn't find closing braces matching opening braces")
+            },
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn displays_properly() {
+        assert_eq!(Error::UnclosedSection("foo".into()).to_string(), "Section not closed properly, was expecting {{/foo}}");
+        assert_eq!(Error::UnclosedTag.to_string(), "Couldn't find closing braces matching opening braces");
     }
 }

@@ -10,6 +10,7 @@
 mod parse;
 mod section;
 
+use std::borrow::Cow;
 use std::hash::Hasher;
 use std::fs::File;
 use std::io;
@@ -19,7 +20,6 @@ use crate::{Content, Error};
 use crate::encoding::{Encoder, EscapingIOEncoder};
 
 use fnv::FnvHasher;
-use cowvec::CowStr;
 
 pub use section::Section;
 
@@ -36,7 +36,7 @@ pub struct Template<'tpl> {
     tail: &'tpl str,
 
     /// Source from which this template was parsed.
-    source: CowStr<'tpl>,
+    source: Cow<'tpl, str>,
 }
 
 impl<'tpl> Template<'tpl> {
@@ -46,7 +46,7 @@ impl<'tpl> Template<'tpl> {
     /// + If `Source` is a `String`, this `Template` will take it's ownership (The `'tpl` lifetime will be `'static`).
     pub fn new<Source>(source: Source) -> Result<Self, Error>
     where
-        Source: Into<CowStr<'tpl>>,
+        Source: Into<Cow<'tpl, str>>,
     {
         let mut tpl = Template {
             blocks: Vec::new(),
@@ -75,7 +75,7 @@ impl<'tpl> Template<'tpl> {
 
         let mut last = 0;
 
-        tpl.parse(source, &mut iter, &mut last, None);
+        tpl.parse(source, &mut iter, &mut last, None)?;
         tpl.tail = &source[last..];
 
         Ok(tpl)
