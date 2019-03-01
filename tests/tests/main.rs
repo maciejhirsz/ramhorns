@@ -1,6 +1,6 @@
-use ramhorns::{Template, Context};
+use ramhorns::{Template, Content};
 
-#[derive(Context)]
+#[derive(Content)]
 struct Post<'a> {
     title: &'a str,
     body: &'a str,
@@ -9,7 +9,7 @@ struct Post<'a> {
 #[test]
 fn simple_render() {
     let source = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{body}}</div>";
-    let tpl = Template::new(source);
+    let tpl = Template::new(source).unwrap();
 
     let rendered = tpl.render(&Post {
         title: "Hello, Ramhorns!",
@@ -21,9 +21,25 @@ fn simple_render() {
 }
 
 #[test]
+fn simple_render_to_writer() {
+    let source = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{body}}</div>";
+    let tpl = Template::new(source).unwrap();
+
+    let mut buf = Vec::new();
+
+    tpl.render_to_writer(&mut buf, &Post {
+        title: "Hello, Ramhorns!",
+        body: "This is a really simple test of the rendering!",
+    }).unwrap();
+
+    assert_eq!(&buf[..], &b"<title>Hello, Ramhorns!</title><h1>Hello, Ramhorns!</h1>\
+                            <div>This is a really simple test of the rendering!</div>"[..]);
+}
+
+#[test]
 fn simple_render_with_comments() {
     let source = "<title>{{ ! ignore me }}{{title}}</title>{{!-- nothing to look at here --}}<h1>{{ title }}</h1><div>{{body}}</div>";
-    let tpl = Template::new(source);
+    let tpl = Template::new(source).unwrap();
 
     let rendered = tpl.render(&Post {
         title: "Hello, Ramhorns!",
@@ -36,12 +52,12 @@ fn simple_render_with_comments() {
 
 #[test]
 fn escaped_vs_unescaped() {
-    #[derive(Context)]
+    #[derive(Content)]
     struct Dummy {
         dummy: &'static str
     }
 
-    let tpl = Template::new("Escaped: {{dummy}} Unescaped: {{{dummy}}}");
+    let tpl = Template::new("Escaped: {{dummy}} Unescaped: {{{dummy}}}").unwrap();
 
     let rendered = tpl.render(&Dummy {
         dummy: "This is a <strong>test</strong>!",
@@ -53,10 +69,10 @@ fn escaped_vs_unescaped() {
 
 #[test]
 fn handles_tuple_structs() {
-    #[derive(Context)]
+    #[derive(Content)]
     struct Dummy(&'static str, &'static str, &'static str);
 
-    let tpl = Template::new("{{1}} {{2}} {{0}}");
+    let tpl = Template::new("{{1}} {{2}} {{0}}").unwrap();
 
     let rendered = tpl.render(&Dummy("zero", "one", "two"));
 
@@ -66,10 +82,10 @@ fn handles_tuple_structs() {
 
 #[test]
 fn handles_unit_structs() {
-    #[derive(Context)]
+    #[derive(Content)]
     struct Dummy;
 
-    let tpl = Template::new("This is pretty silly, but why not?");
+    let tpl = Template::new("This is pretty silly, but why not?").unwrap();
 
     let rendered = tpl.render(&Dummy);
 
@@ -78,14 +94,14 @@ fn handles_unit_structs() {
 
 #[test]
 fn simple_render_with_strings() {
-    #[derive(Context)]
+    #[derive(Content)]
     struct Post {
         title: String,
         body: String,
     }
 
     let source = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{body}}</div>";
-    let tpl = Template::new(source);
+    let tpl = Template::new(source).unwrap();
 
     let rendered = tpl.render(&Post {
         title: "Hello, Ramhorns!".to_string(),
@@ -98,14 +114,14 @@ fn simple_render_with_strings() {
 
 #[test]
 fn simple_render_different_types() {
-    #[derive(Context)]
+    #[derive(Content)]
     struct MeaningOfLife {
         meaning: i32,
         truth: bool,
     }
 
     let source = "The meaning of life is {{meaning}}? {{truth}}!";
-    let tpl = Template::new(source);
+    let tpl = Template::new(source).unwrap();
 
     let correct = tpl.render(&MeaningOfLife {
         meaning: 42,
@@ -123,12 +139,12 @@ fn simple_render_different_types() {
 
 #[test]
 fn can_render_sections_from_bool() {
-    #[derive(Context)]
+    #[derive(Content)]
     struct Conditional {
         secret: bool,
     }
 
-    let tpl = Template::new("Hello!{{#secret}} This is a secret!{{/secret}}");
+    let tpl = Template::new("Hello!{{#secret}} This is a secret!{{/secret}}").unwrap();
 
     let show = tpl.render(&Conditional {
         secret: true,
@@ -143,12 +159,12 @@ fn can_render_sections_from_bool() {
 
 #[test]
 fn can_render_inverse_sections_from_bool() {
-    #[derive(Context)]
+    #[derive(Content)]
     struct Conditional {
         secret: bool,
     }
 
-    let tpl = Template::new("Hello!{{^secret}} This is NOT a secret!{{/secret}}");
+    let tpl = Template::new("Hello!{{^secret}} This is NOT a secret!{{/secret}}").unwrap();
 
     let show = tpl.render(&Conditional {
         secret: true,
@@ -163,12 +179,12 @@ fn can_render_inverse_sections_from_bool() {
 
 #[test]
 fn can_render_inverse_sections_for_empty_strs() {
-    #[derive(Context)]
+    #[derive(Content)]
     struct Person<'a> {
         name: &'a str,
     }
 
-    let tpl = Template::new("Hello {{name}}{{^name}}Anonymous{{/name}}!");
+    let tpl = Template::new("Hello {{name}}{{^name}}Anonymous{{/name}}!").unwrap();
 
     let named = tpl.render(&Person {
         name: "Maciej",
@@ -183,12 +199,12 @@ fn can_render_inverse_sections_for_empty_strs() {
 
 #[test]
 fn can_render_lists_from_slices() {
-    #[derive(Context)]
+    #[derive(Content)]
     struct Article<'a> {
         title: &'a str,
     }
 
-    #[derive(Context)]
+    #[derive(Content)]
     struct Page<'a> {
         title: &'a str,
         articles: &'a [Article<'a>]
@@ -196,7 +212,7 @@ fn can_render_lists_from_slices() {
 
     let tpl = Template::new("<h1>{{title}}</h1>\
                              {{#articles}}<article>{{title}}</article>{{/articles}}\
-                             {{^articles}}<p>No articles :(</p>{{/articles}}");
+                             {{^articles}}<p>No articles :(</p>{{/articles}}").unwrap();
 
 
     let blog = tpl.render(&Page {
@@ -230,12 +246,12 @@ fn can_render_lists_from_slices() {
 
 #[test]
 fn can_render_lists_from_vecs() {
-    #[derive(Context)]
+    #[derive(Content)]
     struct Article {
         title: String,
     }
 
-    #[derive(Context)]
+    #[derive(Content)]
     struct Page {
         title: String,
         articles: Vec<Article>,
@@ -243,7 +259,7 @@ fn can_render_lists_from_vecs() {
 
     let tpl = Template::new("<h1>{{title}}</h1>\
                              {{#articles}}<article>{{title}}</article>{{/articles}}\
-                             {{^articles}}<p>No articles :(</p>{{/articles}}");
+                             {{^articles}}<p>No articles :(</p>{{/articles}}").unwrap();
 
 
     let blog = tpl.render(&Page {

@@ -28,15 +28,15 @@
 //! ## Example
 //!
 //! ```rust
-//! use ramhorns::{Template, Context};
+//! use ramhorns::{Template, Content};
 //!
-//! #[derive(Context)]
+//! #[derive(Content)]
 //! struct Post<'a> {
 //!     title: &'a str,
 //!     teaser: &'a str,
 //! }
 //!
-//! #[derive(Context)]
+//! #[derive(Content)]
 //! struct Blog<'a> {
 //!     title: String,        // Strings are cool
 //!     posts: Vec<Post<'a>>, // &'a [Post<'a>] would work too
@@ -47,7 +47,7 @@
 //!              {{#posts}}<article><h2>{{title}}</h2><p>{{teaser}}</p></article>{{/posts}}\
 //!              {{^posts}}<p>No posts yet :(</p>{{/posts}}";
 //!
-//! let tpl = Template::new(source);
+//! let tpl = Template::new(source).unwrap();
 //!
 //! let rendered = tpl.render(&Blog {
 //!     title: "My Awesome Blog!".to_string(),
@@ -76,13 +76,15 @@
 
 #![warn(missing_docs)]
 
+mod content;
+mod error;
 mod template;
-mod context;
 
 pub mod encoding;
 
+pub use error::Error;
 pub use template::{Template, Section};
-pub use context::Context;
+pub use content::Content;
 
 #[cfg(feature = "export_derive")]
-pub use ramhorns_derive::Context;
+pub use ramhorns_derive::Content;

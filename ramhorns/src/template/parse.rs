@@ -1,7 +1,13 @@
-use super::{Template, Block, Tag};
+use super::{Template, Block, Tag, Error};
 
 impl<'tpl> Template<'tpl> {
-    pub(crate) fn parse<Iter>(&mut self, source: &'tpl str, iter: &mut Iter, last: &mut usize, until: Option<&'tpl str>) -> usize
+    pub(crate) fn parse<Iter>(
+        &mut self,
+        source: &'tpl str,
+        iter: &mut Iter,
+        last: &mut usize,
+        until: Option<&'tpl str>,
+    ) -> Result<usize, Error>
     where
         Iter: Iterator<Item = (usize, &'tpl [u8; 2])>,
     {
@@ -40,15 +46,17 @@ impl<'tpl> Template<'tpl> {
 
                 let html = &source[*last..start];
 
-                while let Some((end, bytes)) = iter.next() {
-                    if bytes == b"}}" {
-                        // Skip a byte since we got a double
-                        iter.next();
-
+                loop {
+                    if let (end, b"}}") = iter.next().ok_or_else(|| Error::UnclosedTag)? {
+                        // Skip the braces
                         if end_skip == 3 {
-                            // TODO: verify that there is a third brace
-                            iter.next();
+                            match iter.next() {
+                                Some((_, b"}}")) => {},
+                                _ => return Err(Error::UnclosedTag),
+                            }
                         }
+
+                        iter.next();
 
                         let name = source[start + start_skip..end].trim();
 
@@ -62,7 +70,7 @@ impl<'tpl> Template<'tpl> {
                         match tag {
                             Tag::Section(_) |
                             Tag::Inverse(_) => {
-                                let count = self.parse(source, iter, last, Some(name));
+                                let count = self.parse(source, iter, last, Some(name))?;
 
                                 match self.blocks[insert_index].tag {
                                     Tag::Section(ref mut c) |
@@ -71,11 +79,13 @@ impl<'tpl> Template<'tpl> {
                                 }
                             },
                             Tag::Closing => {
-                                if until.map(|until| until != name).unwrap_or(false) {
-                                    // TODO: handle error here
+                                if let Some(until) = until {
+                                    if until != name {
+                                        return Err(Error::UnclosedSection(until.into()));
+                                    }
                                 }
 
-                                return self.blocks.len() - blocks_at_start;
+                                return Ok(self.blocks.len() - blocks_at_start);
                             },
                             _ => {},
                         };
@@ -86,10 +96,10 @@ impl<'tpl> Template<'tpl> {
             }
         }
 
-        if until.is_some() {
-            // TODO: handle error here
+        if let Some(until) = until {
+            return Err(Error::UnclosedSection(until.into()));
         }
 
-        self.blocks.len() - blocks_at_start
+        Ok(self.blocks.len() - blocks_at_start)
     }
 }

@@ -18,23 +18,23 @@ What else do you want, a sticker?
 
 ### Cargo
 
-```
+```toml
 [dependencies]
-ramhorns = "0.2"
+ramhorns = "0.3"
 ```
 
 ### Example
 
 ```rust
-use ramhorns::{Template, Context};
+use ramhorns::{Template, Content};
 
-#[derive(Context)]
+#[derive(Content)]
 struct Post<'a> {
     title: &'a str,
     teaser: &'a str,
 }
 
-#[derive(Context)]
+#[derive(Content)]
 struct Blog<'a> {
     title: String,        // Strings are cool
     posts: Vec<Post<'a>>, // &'a [Post<'a>] would work too
@@ -45,7 +45,7 @@ let source ="<h1>{{title}}</h1>\
              {{#posts}}<article><h2>{{title}}</h2><p>{{teaser}}</p></article>{{/posts}}\
              {{^posts}}<p>No posts yet :(</p>{{/posts}}";
 
-let tpl = Template::new(source);
+let tpl = Template::new(source).unwrap();
 
 let rendered = tpl.render(&Blog {
     title: "My Awesome Blog!".to_string(),

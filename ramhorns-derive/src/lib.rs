@@ -29,9 +29,9 @@ use std::hash::Hasher;
 
 type UnitFields = Punctuated<Field, Comma>;
 
-#[proc_macro_derive(Context)]
-pub fn logos(input: TokenStream) -> TokenStream {
-    let item: ItemStruct = syn::parse(input).expect("#[derive(Context)] can be only applied to structs");
+#[proc_macro_derive(Content)]
+pub fn content_derive(input: TokenStream) -> TokenStream {
+    let item: ItemStruct = syn::parse(input).expect("#[derive(Content)] can be only applied to structs");
 
     // panic!("{:#?}", item);
 
@@ -100,7 +100,7 @@ pub fn logos(input: TokenStream) -> TokenStream {
 
     // FIXME: decouple lifetimes from actual generics with trait boundaries
     let tokens = quote! {
-        impl#generics ramhorns::Context for #name#generics {
+        impl#generics ramhorns::Content for #name#generics {
             fn capacity_hint(&self, tpl: &ramhorns::Template) -> usize {
                 tpl.capacity_hint() #( + self.#fields.capacity_hint(tpl) )*
             }
