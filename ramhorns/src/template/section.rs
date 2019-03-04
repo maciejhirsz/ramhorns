@@ -31,15 +31,15 @@ impl<'section> Section<'section> {
             encoder.write_unescaped(block.html)?;
 
             match block.tag {
-                Tag::Escaped => ctx.render_field_escaped(block.hash, encoder)?,
-                Tag::Unescaped => ctx.render_field_unescaped(block.hash, encoder)?,
+                Tag::Escaped => ctx.render_field_escaped(block.hash, block.name, encoder)?,
+                Tag::Unescaped => ctx.render_field_unescaped(block.hash, block.name, encoder)?,
                 Tag::Section(count) => {
-                    ctx.render_field_section(block.hash, Section::new(&self.blocks[index..index + count]), encoder)?;
+                    ctx.render_field_section(block.hash, block.name, Section::new(&self.blocks[index..index + count]), encoder)?;
 
                     index += count;
                 },
                 Tag::Inverse(count) => {
-                    ctx.render_field_inverse(block.hash, Section::new(&self.blocks[index..index + count]), encoder)?;
+                    ctx.render_field_inverse(block.hash, block.name, Section::new(&self.blocks[index..index + count]), encoder)?;
 
                     index += count;
                 },
