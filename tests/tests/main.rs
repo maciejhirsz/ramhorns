@@ -37,6 +37,42 @@ fn simple_render_to_writer() {
 }
 
 #[test]
+fn simple_render_hash_map() {
+    use std::collections::HashMap;
+
+    let source = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{body}}</div>";
+    let tpl = Template::new(source).unwrap();
+
+    let mut map = HashMap::new();
+
+    map.insert("title", "Hello, Ramhorns!");
+    map.insert("body", "This is a test of rendering a template with a HashMap Content!");
+
+    let rendered = tpl.render(&map);
+
+    assert_eq!(&rendered, "<title>Hello, Ramhorns!</title><h1>Hello, Ramhorns!</h1>\
+                           <div>This is a test of rendering a template with a HashMap Content!</div>");
+}
+
+#[test]
+fn simple_render_btree_map() {
+    use std::collections::BTreeMap;
+
+    let source = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{body}}</div>";
+    let tpl = Template::new(source).unwrap();
+
+    let mut map = BTreeMap::new();
+
+    map.insert("title", "Hello, Ramhorns!");
+    map.insert("body", "This is a test of rendering a template with a BTreeMap Content!");
+
+    let rendered = tpl.render(&map);
+
+    assert_eq!(&rendered, "<title>Hello, Ramhorns!</title><h1>Hello, Ramhorns!</h1>\
+                           <div>This is a test of rendering a template with a BTreeMap Content!</div>");
+}
+
+#[test]
 fn simple_render_with_comments() {
     let source = "<title>{{ ! ignore me }}{{title}}</title>{{!-- nothing to look at here --}}<h1>{{ title }}</h1><div>{{body}}</div>";
     let tpl = Template::new(source).unwrap();

@@ -10,6 +10,10 @@
 use crate::{Template, Section};
 use crate::encoding::Encoder;
 
+use std::borrow::Borrow;
+use std::collections::{HashMap, BTreeMap};
+use std::hash::Hash;
+
 /// Trait allowing the rendering to quickly access data stored in the type that
 /// implements it. You needn't worry about implementing it, in virtually all
 /// cases the `#[derive(Content)]` attribute above your types should be sufficient.
@@ -69,36 +73,36 @@ pub trait Content: Sized {
         }
     }
 
-    /// Render a field, by the hash of it's name.
+    /// Render a field by the hash **or** string of its name.
     ///
     /// This will escape HTML characters, eg: `<` will become `&lt;`.
-    fn render_field_escaped<E>(&self, _hash: u64, _encoder: &mut E) -> Result<(), E::Error>
+    fn render_field_escaped<E>(&self, _hash: u64, _name: &str, _encoder: &mut E) -> Result<(), E::Error>
     where
         E: Encoder,
     {
         Ok(())
     }
 
-    /// Render a field, by the hash of it's name.
+    /// Render a field by the hash **or** string of its name.
     ///
     /// This doesn't perform any escaping at all.
-    fn render_field_unescaped<E>(&self, _hash: u64, _encoder: &mut E) -> Result<(), E::Error>
+    fn render_field_unescaped<E>(&self, _hash: u64, _name: &str, _encoder: &mut E) -> Result<(), E::Error>
     where
         E: Encoder,
     {
         Ok(())
     }
 
-    /// Render a field, by the hash of it's name, as a section.
-    fn render_field_section<'section, E>(&self, _hash: u64, _section: Section<'section>, _encoder: &mut E) -> Result<(), E::Error>
+    /// Render a field by the hash **or** string of its name, as a section.
+    fn render_field_section<'section, E>(&self, _hash: u64, _name: &str, _section: Section<'section>, _encoder: &mut E) -> Result<(), E::Error>
     where
         E: Encoder,
     {
         Ok(())
     }
 
-    /// Render a field, by the hash of it's name, as an inverse section.
-    fn render_field_inverse<'section, E>(&self, _hash: u64, _section: Section<'section>, _encoder: &mut E) -> Result<(), E::Error>
+    /// Render a field, by the hash of **or** string its name, as an inverse section.
+    fn render_field_inverse<'section, E>(&self, _hash: u64, _name: &str, _section: Section<'section>, _encoder: &mut E) -> Result<(), E::Error>
     where
         E: Encoder,
     {
@@ -324,5 +328,105 @@ impl<T: Content> Content for &[T] {
         }
 
         Ok(())
+    }
+}
+
+impl<K, V> Content for HashMap<K, V>
+where
+    K: Borrow<str> + Hash + Eq,
+    V: Content,
+{
+    fn is_truthy(&self) -> bool {
+        !self.is_empty()
+    }
+
+    fn render_field_escaped<E>(&self, _: u64, name: &str, encoder: &mut E) -> Result<(), E::Error>
+    where
+        E: Encoder,
+    {
+        match self.get(name) {
+            Some(v) => v.render_escaped(encoder),
+            None => Ok(())
+        }
+    }
+
+    fn render_field_unescaped<E>(&self, _: u64, name: &str, encoder: &mut E) -> Result<(), E::Error>
+    where
+        E: Encoder,
+    {
+        match self.get(name) {
+            Some(v) => v.render_unescaped(encoder),
+            None => Ok(())
+        }
+    }
+
+    fn render_field_section<'section, E>(&self, _: u64, name: &str, section: Section<'section>, encoder: &mut E) -> Result<(), E::Error>
+    where
+        E: Encoder,
+    {
+        match self.get(name) {
+            Some(v) => v.render_section(section, encoder),
+            None => Ok(())
+        }
+    }
+
+    fn render_field_inverse<'section, E>(&self, _: u64, name: &str, section: Section<'section>, encoder: &mut E) -> Result<(), E::Error>
+    where
+        E: Encoder,
+    {
+        match self.get(name) {
+            Some(v) => v.render_inverse(section, encoder),
+            None => Ok(())
+        }
+    }
+}
+
+impl<K, V> Content for BTreeMap<K, V>
+where
+    K: Borrow<str> + Ord,
+    V: Content,
+{
+    fn is_truthy(&self) -> bool {
+        !self.is_empty()
+    }
+
+    fn render_field_escaped<E>(&self, _: u64, name: &str, encoder: &mut E) -> Result<(), E::Error>
+    where
+        E: Encoder,
+    {
+        match self.get(name) {
+            Some(v) => v.render_escaped(encoder),
+            None => Ok(())
+        }
+    }
+
+    fn render_field_unescaped<E>(&self, _: u64, name: &str, encoder: &mut E) -> Result<(), E::Error>
+    where
+        E: Encoder,
+    {
+        match self.get(name) {
+            Some(v) => v.render_unescaped(encoder),
+            None => Ok(())
+        }
+    }
+
+    fn render_field_section<'section, E>(&self, _: u64, name: &str, section: Section<'section>, encoder: &mut E) -> Result<(), E::Error>
+    where
+        E: Encoder,
+    {
+        match self.get(name) {
+            Some(v) => v.render_section(section, encoder),
+            None => Ok(())
+        }
+    }
+
+    fn render_field_inverse<'section, E>(&self, _: u64, name: &str, section: Section<'section>, encoder: &mut E) -> Result<(), E::Error>
+    where
+        E: Encoder,
+    {
+        match self.get(name) {
+            Some(v) => v.render_inverse(section, encoder),
+            None => Ok(())
+        }
     }
 }

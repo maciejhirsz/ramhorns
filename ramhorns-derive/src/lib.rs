@@ -105,7 +105,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                 tpl.capacity_hint() #( + self.#fields.capacity_hint(tpl) )*
             }
 
-            fn render_field_escaped<E>(&self, hash: u64, encoder: &mut E) -> Result<(), E::Error>
+            fn render_field_escaped<E>(&self, hash: u64, _: &str, encoder: &mut E) -> Result<(), E::Error>
             where
                 E: ramhorns::encoding::Encoder,
             {
@@ -115,7 +115,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn render_field_unescaped<E>(&self, hash: u64, encoder: &mut E) -> Result<(), E::Error>
+            fn render_field_unescaped<E>(&self, hash: u64, _: &str, encoder: &mut E) -> Result<(), E::Error>
             where
                 E: ramhorns::encoding::Encoder,
             {
@@ -125,7 +125,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn render_field_section<'section, E>(&self, hash: u64, section: ramhorns::Section<'section>, encoder: &mut E) -> Result<(), E::Error>
+            fn render_field_section<'section, E>(&self, hash: u64, _: &str, section: ramhorns::Section<'section>, encoder: &mut E) -> Result<(), E::Error>
             where
                 E: ramhorns::encoding::Encoder,
             {
@@ -135,7 +135,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn render_field_inverse<'section, E>(&self, hash: u64, section: ramhorns::Section<'section>, encoder: &mut E) -> Result<(), E::Error>
+            fn render_field_inverse<'section, E>(&self, hash: u64, _: &str, section: ramhorns::Section<'section>, encoder: &mut E) -> Result<(), E::Error>
             where
                 E: ramhorns::encoding::Encoder,
             {
