@@ -84,7 +84,7 @@ mod cmark;
 pub mod encoding;
 
 pub use error::Error;
-pub use template::{Template, Section};
+pub use template::{Template, Section, Variables};
 pub use content::Content;
 
 #[cfg(feature = "export_derive")]

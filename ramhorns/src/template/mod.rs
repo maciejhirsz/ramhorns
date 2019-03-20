@@ -9,6 +9,7 @@
 
 mod parse;
 mod section;
+mod variables;
 
 use std::borrow::Cow;
 use std::hash::Hasher;
@@ -22,6 +23,7 @@ use crate::encoding::{Encoder, EscapingIOEncoder};
 use fnv::FnvHasher;
 
 pub use section::Section;
+pub use variables::Variables;
 
 /// A preprocessed form of the plain text template, ready to be rendered
 /// with data contained in types implementing the `Content` trait.
@@ -84,6 +86,13 @@ impl<'tpl> Template<'tpl> {
     /// Estimate how big of a buffer should be allocated to render this `Template`.
     pub fn capacity_hint(&self) -> usize {
         self.capacity_hint + self.tail.len()
+    }
+
+    /// Obtain an iterator over variables in this `Template`.
+    pub fn variables(&self) -> Variables {
+        Variables {
+            blocks: &self.blocks,
+        }
     }
 
     /// Render this `Template` with a given `Content` to a `String`.
@@ -255,5 +264,20 @@ mod test {
         ]);
 
         assert_eq!(tpl.tail, "</body>");
+    }
+
+    #[test]
+    fn can_iterate_over_variables_correctly() {
+        let source = "<body><h1>{{ title }}</h1>{{#posts}}<article>{{name}}</article>{{/posts}}{{^posts}}<p>Nothing here :(</p>{{/posts}}</body>";
+        let tpl = Template::new(source).unwrap();
+
+        let mut vars = tpl.variables();
+
+        assert_eq!(vars.next().unwrap(), ("title", None));
+
+        let inner = vars.next().unwrap();
+
+        assert_eq!(inner.0, "posts");
+        assert_eq!(inner.1.unwrap().next().unwrap(), ("name", None));
     }
 }
