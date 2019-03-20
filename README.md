@@ -24,7 +24,7 @@ What else do you want, a sticker?
 
 ```toml
 [dependencies]
-ramhorns = "0.4"
+ramhorns = "0.5"
 ```
 
 ### Example
