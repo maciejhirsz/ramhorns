@@ -49,6 +49,16 @@ pub trait Content: Sized {
         self.render_escaped(encoder)
     }
 
+    /// Renders self as a variable to the encoder with CommonMark processing.
+    ///
+    /// The generated HTML is never escaped.
+    fn render_cmark<'section, E>(&self, encoder: &mut E) -> Result<(), E::Error>
+    where
+        E: Encoder,
+    {
+        self.render_escaped(encoder)
+    }
+
     /// Render a section with self.
     fn render_section<'section, E>(&self, section: Section<'section>, encoder: &mut E) -> Result<(), E::Error>
     where
@@ -132,6 +142,13 @@ impl Content for &str {
     {
         encoder.write_unescaped(*self)
     }
+
+    fn render_cmark<'section, E>(&self, encoder: &mut E) -> Result<(), E::Error>
+    where
+        E: Encoder,
+    {
+        crate::cmark::encode(*self, encoder)
+    }
 }
 
 impl Content for String {
@@ -155,6 +172,13 @@ impl Content for String {
         E: Encoder,
     {
         encoder.write_unescaped(self)
+    }
+
+    fn render_cmark<'section, E>(&self, encoder: &mut E) -> Result<(), E::Error>
+    where
+        E: Encoder,
+    {
+        crate::cmark::encode(self, encoder)
     }
 }
 
@@ -203,7 +227,7 @@ macro_rules! impl_number_types {
     }
 }
 
-impl_number_types!(u8, u16, u32, u64, usize, i8, i16, i32, i64, isize, f32, f64);
+impl_number_types!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64);
 
 impl<T: Content> Content for Option<T> {
     fn is_truthy(&self) -> bool {

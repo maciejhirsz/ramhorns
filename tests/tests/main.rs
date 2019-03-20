@@ -103,6 +103,24 @@ fn escaped_vs_unescaped() {
                           Unescaped: This is a <strong>test</strong>!");
 }
 
+
+#[test]
+fn escaped_vs_unescaped_ampersand() {
+    #[derive(Content)]
+    struct Dummy {
+        dummy: &'static str
+    }
+
+    let tpl = Template::new("Escaped: {{dummy}} Unescaped: {{& dummy}}").unwrap();
+
+    let rendered = tpl.render(&Dummy {
+        dummy: "This is a <strong>test</strong>!",
+    });
+
+    assert_eq!(rendered, "Escaped: This is a &lt;strong&gt;test&lt;/strong&gt;! \
+                          Unescaped: This is a <strong>test</strong>!");
+}
+
 #[test]
 fn handles_tuple_structs() {
     #[derive(Content)]
@@ -325,4 +343,24 @@ fn can_render_lists_from_vecs() {
 
     assert_eq!(empty, "<h1>Sad page :(</h1>\
                        <p>No articles :(</p>");
+}
+
+#[test]
+fn can_render_markdown() {
+    #[derive(Content)]
+    struct Post<'a> {
+        title: &'a str,
+
+        #[md]
+        body: &'a str,
+    }
+
+    let tpl = Template::new("<h1>{{title}}</h1><div>{{body}}</div>").unwrap();
+
+    let html = tpl.render(&Post {
+        title: "This is *the* title",
+        body: "This is *the* __body__!",
+    });
+
+    assert_eq!(html, "<h1>This is *the* title</h1><div><p>This is <em>the</em> <strong>body</strong>!</p>\n</div>");
 }

@@ -1,8 +1,18 @@
+// Ramhorns  Copyright (C) 2019  Maciej Hirsz
+//
+// This file is part of Ramhorns. This program comes with ABSOLUTELY NO WARRANTY;
+// This is free software, and you are welcome to redistribute it under the
+// conditions of the GNU General Public License version 3.0.
+//
+// You should have received a copy of the GNU General Public License
+// along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
+
 //! Utilities dealing with writing the bits of a template or data to the output and
 //! escaping special HTML characters.
 
 use std::io;
 use std::fmt;
+use pulldown_cmark::{html, Event};
 
 /// A trait that wraps around either a `String` or `std::io::Write`, providing UTF-8 safe
 /// writing boundaries and special HTML character escaping.
@@ -15,6 +25,9 @@ pub trait Encoder {
 
     /// Write a `&str` to this `Encoder`, escaping special HTML characters.
     fn write_escaped(&mut self, part: &str) -> Result<(), Self::Error>;
+
+    /// Write HTML from an `Iterator` of `pulldown_cmark` `Event`s.
+    fn write_html<'a, I: Iterator<Item = Event<'a>>>(&mut self, iter: I) -> Result<(), Self::Error>;
 
     /// Write a `Display` implementor to this `Encoder` in plain mode.
     fn format_unescaped<D: fmt::Display>(&mut self, display: D) -> Result<(), Self::Error>;
@@ -124,6 +137,10 @@ impl<W: io::Write> Encoder for EscapingIOEncoder<W> {
         self.write_escaped_bytes(part.as_bytes())
     }
 
+    fn write_html<'a, I: Iterator<Item = Event<'a>>>(&mut self, iter: I) -> io::Result<()> {
+        html::write_html(&mut self.inner, iter)
+    }
+
     fn format_unescaped<D: fmt::Display>(&mut self, display: D) -> Result<(), Self::Error> {
         write!(self.inner, "{}", display)
     }
@@ -147,6 +164,12 @@ impl Encoder for String {
 
     fn write_escaped(&mut self, part: &str) -> Result<(), Self::Error> {
         EscapingStringEncoder(self).write_escaped(part);
+
+        Ok(())
+    }
+
+    fn write_html<'a, I: Iterator<Item = Event<'a>>>(&mut self, iter: I) -> Result<(), Self::Error> {
+        html::push_html(self, iter);
 
         Ok(())
     }
