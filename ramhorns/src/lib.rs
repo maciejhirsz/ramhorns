@@ -79,6 +79,7 @@
 mod content;
 mod error;
 mod template;
+mod cmark;
 
 pub mod encoding;
 

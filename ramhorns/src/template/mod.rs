@@ -87,8 +87,8 @@ impl<'tpl> Template<'tpl> {
     }
 
     /// Render this `Template` with a given `Content` to a `String`.
-    pub fn render<C: crate::Content>(&self, ctx: &C) -> String {
-        let mut capacity = ctx.capacity_hint(self);
+    pub fn render<C: crate::Content>(&self, content: &C) -> String {
+        let mut capacity = content.capacity_hint(self);
 
         // Add extra 25% extra capacity for HTML escapes and an odd double variable use.
         capacity += capacity / 4;
@@ -96,27 +96,27 @@ impl<'tpl> Template<'tpl> {
         let mut buf = String::with_capacity(capacity);
 
         // Ignore the result, cannot fail
-        let _ = Section::new(&self.blocks).render_once(ctx, &mut buf);
+        let _ = Section::new(&self.blocks).render_once(content, &mut buf);
 
         buf.push_str(self.tail);
         buf
     }
 
     /// Render this `Template` with a given `Content` to a writer.
-    pub fn render_to_writer<W, C>(&self, writer: &mut W, ctx: &C) -> io::Result<()>
+    pub fn render_to_writer<W, C>(&self, writer: &mut W, content: &C) -> io::Result<()>
     where
         W: io::Write,
         C: Content,
     {
         let mut encoder = EscapingIOEncoder::new(writer);
 
-        Section::new(&self.blocks).render_once(ctx, &mut encoder)?;
+        Section::new(&self.blocks).render_once(content, &mut encoder)?;
 
         encoder.write_unescaped(self.tail)
     }
 
     /// Render this `Template` with a given `Content` to a file.
-    pub fn render_to_file<P, C>(&self, path: P, ctx: &C) -> io::Result<()>
+    pub fn render_to_file<P, C>(&self, path: P, content: &C) -> io::Result<()>
     where
         P: AsRef<Path>,
         C: Content,
@@ -126,7 +126,7 @@ impl<'tpl> Template<'tpl> {
         let writer = BufWriter::new(File::create(path)?);
         let mut encoder = EscapingIOEncoder::new(writer);
 
-        Section::new(&self.blocks).render_once(ctx, &mut encoder)?;
+        Section::new(&self.blocks).render_once(content, &mut encoder)?;
 
         encoder.write_unescaped(self.tail)
     }
@@ -244,7 +244,6 @@ mod test {
     fn constructs_nested_sections_correctly() {
         let source = "<body><h1>{{ title }}</h1>{{#posts}}<article>{{name}}</article>{{/posts}}{{^posts}}<p>Nothing here :(</p>{{/posts}}</body>";
         let tpl = Template::new(source).unwrap();
-
 
         assert_eq!(&tpl.blocks, &[
             Block::new("<body><h1>", "title", Tag::Escaped),

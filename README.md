@@ -79,9 +79,10 @@ assert_eq!(rendered, "<h1>My Awesome Blog!</h1>\
 ### Features so far
 
 + Rendering common types, such as `&str`, `String`, `bool`s, and numbers into `{{variables}}`.
-+ Unescaped printing with `{{{tripple-brace}}}`.
++ Unescaped printing with `{{{tripple-brace}}}` or `{{&ampersant}}`.
 + Rendering sections `{{#foo}} ... {{/foo}}`.
 + Rendering inverse sections `{{^foo}} ... {{/foo}}`.
++ Zero-copy [CommonMark](https://commonmark.org/) rendering from fields marked with `#[md]`.
 
 ### Benches
 

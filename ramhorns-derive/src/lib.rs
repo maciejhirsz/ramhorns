@@ -29,7 +29,7 @@ use std::hash::Hasher;
 
 type UnitFields = Punctuated<Field, Comma>;
 
-#[proc_macro_derive(Content)]
+#[proc_macro_derive(Content, attributes(md))]
 pub fn content_derive(input: TokenStream) -> TokenStream {
     let item: ItemStruct = syn::parse(input).expect("#[derive(Content)] can be only applied to structs");
 
@@ -48,6 +48,19 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
     let mut fields = fields
         .enumerate()
         .map(|(index, field)| {
+            let iter = field.attrs
+                .iter()
+                .filter_map(|attr| attr.path.segments.first())
+                .map(|pair| &pair.into_value().ident);
+
+            let mut method = None;
+
+            for attr in iter {
+                if attr == "md" {
+                    method = Some(quote!(render_cmark));
+                }
+            }
+
             let (name, token) = field.ident
                 .as_ref()
                 .map(|ident| (ident.to_string(), quote!(#ident)))
@@ -66,37 +79,43 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
 
             let hash = hasher.finish();
 
-            (name, token, hash)
+            (name, token, hash, method)
         })
         .collect::<Vec<_>>();
 
     fields.sort_unstable_by(|a, b| (a.2).cmp(&b.2));
 
-    let render_field_escaped = fields.iter().map(|(_, field, hash)| {
+    let render_escaped = quote!(render_escaped);
+    let render_field_escaped = fields.iter().map(|(_, field, hash, method)| {
+        let method = method.as_ref().unwrap_or(&render_escaped);
+
         quote! {
-            #hash => self.#field.render_escaped(encoder),
+            #hash => self.#field.#method(encoder),
         }
     });
 
-    let render_field_unescaped = fields.iter().map(|(_, field, hash)| {
+    let render_unescaped = quote!(render_unescaped);
+    let render_field_unescaped = fields.iter().map(|(_, field, hash, method)| {
+        let method = method.as_ref().unwrap_or(&render_unescaped);
+
         quote! {
-            #hash => self.#field.render_unescaped(encoder),
+            #hash => self.#field.#method(encoder),
         }
     });
 
-    let render_field_section = fields.iter().map(|(_, field, hash)| {
+    let render_field_section = fields.iter().map(|(_, field, hash, _)| {
         quote! {
             #hash => self.#field.render_section(section, encoder),
         }
     });
 
-    let render_field_inverse = fields.iter().map(|(_, field, hash)| {
+    let render_field_inverse = fields.iter().map(|(_, field, hash, _)| {
         quote! {
             #hash => self.#field.render_inverse(section, encoder),
         }
     });
 
-    let fields = fields.iter().map(|(_, field, _)| field);
+    let fields = fields.iter().map(|(_, field, _, _)| field);
 
     // FIXME: decouple lifetimes from actual generics with trait boundaries
     let tokens = quote! {
