@@ -32,13 +32,16 @@ pub enum Rust {
     #[regex = r#"\.|:|\?|!|\&|-|\+|\*|/|\||=|'[a-zA-Z_][a-zA-Z0-9_]*|->|=>|_|#\[[^\]]*\]"#]
     Special,
 
-    #[regex = "as|break|const|continue|crate|dyn|else|enum|extern"]
-    #[regex = "false|fn|for|if|impl|in|let|loop|match|mod|move|mut"]
-    #[regex = "pub|ref|return|self|Self|static|struct|super|trait"]
+    #[regex = "as|break|const|continue|crate|dyn|else|extern"]
+    #[regex = "false|for|if|impl|in|let|loop|match|mod|move|mut"]
+    #[regex = "pub|ref|return|self|Self|static|super|trait"]
     #[regex = "true|type|unsafe|use|where|while"]
     #[regex = "abstract|async|await|become|box|do|final|macro"]
     #[regex = "override|priv|try|typeof|unsized|virtual|yield"]
     Keyword,
+
+    #[regex = "fn|enum|struct"]
+    ContextKeyword,
 
     #[regex = "Some|None|Ok|Err|str|bool|[ui](8|16|32|64|size)|f32|f64"]
     Common,
@@ -51,13 +54,17 @@ impl Highlight for Rust {
     const LANG: &'static str = "rust";
 
     fn tag(tokens: &[Self; 2]) -> Option<&'static str> {
+        use Rust::*;
+
         match tokens {
-            [_, Rust::Common] => Some("span"),
-            [_, Rust::Identifier] => Some("var"),
-            [_, Rust::Literal] => Some("em"),
-            [_, Rust::Special] => Some("u"),
-            [_, Rust::Keyword] => Some("b"),
-            [_, Rust::Comment] => Some("i"),
+            [ContextKeyword, Identifier] => Some("span"),
+            [_, Identifier] => Some("var"),
+            [_, Common] => Some("span"),
+            [_, Literal] => Some("em"),
+            [_, Special] => Some("u"),
+            [_, Keyword] => Some("b"),
+            [_, ContextKeyword] => Some("b"),
+            [_, Comment] => Some("i"),
             _ => None,
         }
     }
