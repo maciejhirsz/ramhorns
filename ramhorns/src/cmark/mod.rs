@@ -11,8 +11,12 @@ use pulldown_cmark::Parser;
 
 use crate::encoding::Encoder;
 
+mod syntax;
+
 pub fn encode<E: Encoder>(source: &str, encoder: &mut E) -> Result<(), E::Error> {
     let parser = Parser::new(source);
 
-    encoder.write_html(parser)
+    let processed = syntax::SyntaxPreprocessor::new(parser);
+
+    encoder.write_html(processed)
 }
