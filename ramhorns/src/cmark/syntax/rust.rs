@@ -29,8 +29,11 @@ pub enum Rust {
     #[regex = "0[bB][01_]+"]
     Literal,
 
-    #[regex = r#"\.|:|\?|!|\&|-|\+|\*|/|\||=|'[a-zA-Z_][a-zA-Z0-9_]*|->|=>|_|#\[[^\]]*\]"#]
+    #[regex = r#"\?|!|\^|-|\+|\*|&|/|\||=|->|=>|_|#\[[^\]]*\]"#]
     Special,
+
+    #[regex = r"\.|:|(&|'[a-zA-Z_][a-zA-Z0-9_]*)([ \t\n\r]*mut[ \t\n\r]+)"]
+    ContextSpecial,
 
     #[regex = "as|break|const|continue|crate|dyn|else|extern"]
     #[regex = "false|for|if|impl|in|let|loop|match|mod|move|mut"]
@@ -57,11 +60,13 @@ impl Highlight for Rust {
         use Rust::*;
 
         match tokens {
-            [ContextKeyword, Identifier] => Some("span"),
+            [ContextKeyword, Identifier] |
+            [ContextSpecial, Identifier] => Some("em"),
             [_, Identifier] => Some("var"),
-            [_, Common] => Some("span"),
-            [_, Literal] => Some("em"),
+            [_, Common] => Some("em"),
+            [_, Literal] => Some("span"),
             [_, Special] => Some("u"),
+            [_, ContextSpecial] => Some("u"),
             [_, Keyword] => Some("b"),
             [_, ContextKeyword] => Some("b"),
             [_, Comment] => Some("i"),
