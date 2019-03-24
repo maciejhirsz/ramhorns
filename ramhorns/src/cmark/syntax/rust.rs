@@ -32,7 +32,7 @@ pub enum Rust {
     #[regex = r#"\?|!|\^|-|\+|\*|&|/|\||=|->|=>|_|#\[[^\]]*\]"#]
     Special,
 
-    #[regex = r"\.|:|(&|'[a-zA-Z_][a-zA-Z0-9_]*)([ \t\n\r]*mut[ \t\n\r]+)"]
+    #[regex = r"\.|:|(&|'[a-zA-Z_][a-zA-Z0-9_]*)([ \t\n\r]*mut[ \t\n\r]+)?"]
     ContextSpecial,
 
     #[regex = "as|break|const|continue|crate|dyn|else|extern"]
