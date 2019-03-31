@@ -11,7 +11,7 @@ use logos::Logos;
 use super::{Highlight, Kind};
 
 #[derive(Logos, PartialEq, Eq, Clone, Copy)]
-pub enum Rust {
+pub enum JavaScript {
     #[error]
     Error,
 
@@ -22,42 +22,43 @@ pub enum Rust {
     Identifier,
 
     #[regex = "\"([^\"\\\\]|\\\\[.\n])*\""]
+    #[regex = "`([^`]|\\\\`)*`"]
     #[regex = "'([^']|\\\\')'"]
-    #[regex = "[0-9][0-9_]*"]
-    #[regex = "0[xX][0-9a-fA-F_]+"]
-    #[regex = "0[oO][0-7_]+"]
-    #[regex = "0[bB][01_]+"]
+    #[regex = "[0-9][0-9]*"]
+    #[regex = "0[xX][0-9a-fA-F]+"]
+    #[regex = "0[oO][0-7]+"]
+    #[regex = "0[bB][01]+"]
     Literal,
 
-    #[regex = r#"\?|!|\^|-|\+|\*|&|/|\|<|>|=|=>|->|_|#\[[^\]]*\]"#]
+    #[regex = r#"\?|:|!|\^|-|\+|\*|&|/|\|<|>|=|=>|_"#]
     Glyph,
 
-    #[regex = r"\.|:|(&|'[a-zA-Z_][a-zA-Z0-9_]*)([ \t\n\r]*mut[ \t\n\r]+)?"]
+    #[regex = r"\."]
     GlyphCtx,
 
-    #[regex = "as|break|const|continue|crate|dyn|else|extern"]
-    #[regex = "false|for|if|impl|in|let|loop|match|mod|move|mut"]
-    #[regex = "pub|ref|return|self|Self|static|super|trait"]
-    #[regex = "true|type|unsafe|use|where|while"]
-    #[regex = "abstract|async|await|become|box|do|final|macro"]
-    #[regex = "override|priv|try|typeof|unsized|virtual|yield"]
+    #[regex = "arguments|async|await|break|case|catch|const|continue"]
+    #[regex = "debugger|default|delete|do|else|enum|eval|export|extends"]
+    #[regex = "false|finally|for|if|implements|import|in|instanceof"]
+    #[regex = "interface|let|long|native|new|null|package|private"]
+    #[regex = "protected|public|return|static|super|switch|this|throw"]
+    #[regex = "true|try|typeof|var|void|while|with|yield"]
     Keyword,
 
-    #[regex = "fn|enum|struct"]
+    #[regex = "function|class"]
     KeywordCtx,
 
-    #[regex = "Some|None|Ok|Err|str|bool|[ui](8|16|32|64|size)|f32|f64"]
+    #[regex = "undefined|Object|Array|Number|String|NaN|Infinity|Date|Math"]
     Special,
 
     #[regex = "//[^\n]*"]
     Comment,
 }
 
-impl Highlight for Rust {
-    const LANG: &'static str = "rust";
+impl Highlight for JavaScript {
+    const LANG: &'static str = "js";
 
     fn kind(tokens: &[Self; 2]) -> Kind {
-        use Rust::*;
+        use JavaScript::*;
 
         match tokens {
             [KeywordCtx, Identifier] |

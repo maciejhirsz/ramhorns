@@ -12,6 +12,10 @@ use pulldown_cmark::{Event, Tag};
 use logos::Logos;
 
 mod rust;
+mod javascript;
+
+use rust::Rust;
+use javascript::JavaScript;
 
 pub struct SyntaxPreprocessor<'a, I: Iterator<Item = Event<'a>>> {
     parent: I,
@@ -29,13 +33,8 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for SyntaxPreprocessor<'a, I> {
     type Item = Event<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let (lang, highlight) = match self.parent.next()? {
-            Event::Start(Tag::CodeBlock(lang)) => {
-                match &*lang {
-                    "rust" => (lang, highlight::<rust::Rust>),
-                    _ => return Some(Event::Start(Tag::CodeBlock(lang))),
-                }
-            },
+        let lang = match self.parent.next()? {
+            Event::Start(Tag::CodeBlock(lang)) => lang,
             other => return Some(other),
         };
 
@@ -49,7 +48,21 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for SyntaxPreprocessor<'a, I> {
             }
         }
 
-        let html = highlight(&code);
+        let mut html = String::with_capacity(code.len() + code.len() / 4 + 60);
+
+        html.push_str("<pre><code class=\"language-");
+        html.push_str(lang.as_ref());
+        html.push_str("\">");
+
+        match lang.as_ref() {
+            "rust" => highlight::<Rust>(&code, &mut html),
+            "js" | "javascript" => highlight::<JavaScript>(&code, &mut html),
+            _ => {
+                let _ = html.write_escaped(&code);
+            },
+        }
+
+        html.push_str("</code></pre>");
 
         Some(Event::InlineHtml(html.into()))
     }
@@ -85,20 +98,13 @@ pub trait Highlight: Sized {
     fn kind(tokens: &[Self; 2]) -> Kind;
 }
 
-pub fn highlight<'a, Token>(source: &'a str) -> String
+pub fn highlight<'a, Token>(source: &'a str, buf: &mut String)
 where
     Token: Highlight + Logos + logos::source::WithSource<&'a str> + Eq + Copy,
 {
-    let mut buf = String::with_capacity(source.len());
+    let mut lex = Token::lexer(source);
     let mut open = Kind::None;
     let mut last = 0usize;
-
-    let mut lex = Token::lexer(source);
-
-    buf.push_str("<pre><code class=\"language-");
-    buf.push_str(Token::LANG);
-    buf.push_str("\">");
-
     let mut tokens = [Token::ERROR; 2];
 
     while lex.token != Token::END {
@@ -144,8 +150,4 @@ where
         buf.push_str(tag);
         buf.push_str(">");
     }
-
-    buf.push_str("</code></pre>");
-
-    buf
 }
