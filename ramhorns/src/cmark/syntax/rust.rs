@@ -8,7 +8,7 @@
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
 use logos::Logos;
-use super::Highlight;
+use super::{Highlight, Kind};
 
 #[derive(Logos, PartialEq, Eq, Clone, Copy)]
 pub enum Rust {
@@ -30,10 +30,10 @@ pub enum Rust {
     Literal,
 
     #[regex = r#"\?|!|\^|-|\+|\*|&|/|\||=|->|=>|_|#\[[^\]]*\]"#]
-    Special,
+    Glyph,
 
     #[regex = r"\.|:|(&|'[a-zA-Z_][a-zA-Z0-9_]*)([ \t\n\r]*mut[ \t\n\r]+)?"]
-    ContextSpecial,
+    GlyphCtx,
 
     #[regex = "as|break|const|continue|crate|dyn|else|extern"]
     #[regex = "false|for|if|impl|in|let|loop|match|mod|move|mut"]
@@ -44,10 +44,10 @@ pub enum Rust {
     Keyword,
 
     #[regex = "fn|enum|struct"]
-    ContextKeyword,
+    KeywordCtx,
 
     #[regex = "Some|None|Ok|Err|str|bool|[ui](8|16|32|64|size)|f32|f64"]
-    Common,
+    Special,
 
     #[regex = "//[^\n]*"]
     Comment,
@@ -56,21 +56,21 @@ pub enum Rust {
 impl Highlight for Rust {
     const LANG: &'static str = "rust";
 
-    fn tag(tokens: &[Self; 2]) -> Option<&'static str> {
+    fn kind(tokens: &[Self; 2]) -> Kind {
         use Rust::*;
 
         match tokens {
-            [ContextKeyword, Identifier] |
-            [ContextSpecial, Identifier] => Some("em"),
-            [_, Identifier] => Some("var"),
-            [_, Common] => Some("em"),
-            [_, Literal] => Some("span"),
-            [_, Special] => Some("u"),
-            [_, ContextSpecial] => Some("u"),
-            [_, Keyword] => Some("b"),
-            [_, ContextKeyword] => Some("b"),
-            [_, Comment] => Some("i"),
-            _ => None,
+            [KeywordCtx, Identifier] |
+            [GlyphCtx, Identifier]   |
+            [_, Special]             => Kind::SpecialIdentifier,
+            [_, Identifier]          => Kind::Identifier,
+            [_, Literal]             => Kind::Literal,
+            [_, Glyph]               |
+            [_, GlyphCtx]            => Kind::Glyph,
+            [_, Keyword]             |
+            [_, KeywordCtx]          => Kind::Keyword,
+            [_, Comment]             => Kind::Comment,
+            _                        => Kind::None,
         }
     }
 }

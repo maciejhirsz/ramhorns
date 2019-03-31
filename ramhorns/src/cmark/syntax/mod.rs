@@ -7,6 +7,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
+use crate::encoding::Encoder;
 use pulldown_cmark::{Event, Tag};
 use logos::Logos;
 
@@ -54,10 +55,34 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for SyntaxPreprocessor<'a, I> {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Kind {
+    None,
+    Glyph,
+    Literal,
+    Identifier,
+    SpecialIdentifier,
+    Keyword,
+    Comment,
+}
+
+static HIGHLIGHT_TAG: [Option<&'static str>; 7] = {
+    let mut tags = [None; 7];
+
+    tags[Kind::Glyph as usize] = Some("u");
+    tags[Kind::Literal as usize] = Some("span");
+    tags[Kind::Identifier as usize] = Some("var");
+    tags[Kind::SpecialIdentifier as usize] = Some("em");
+    tags[Kind::Keyword as usize] = Some("b");
+    tags[Kind::Comment as usize] = Some("i");
+
+    tags
+};
+
 pub trait Highlight: Sized {
     const LANG: &'static str;
 
-    fn tag(tokens: &[Self; 2]) -> Option<&'static str>;
+    fn kind(tokens: &[Self; 2]) -> Kind;
 }
 
 pub fn highlight<'a, Token>(source: &'a str) -> String
@@ -65,7 +90,7 @@ where
     Token: Highlight + Logos + logos::source::WithSource<&'a str> + Eq + Copy,
 {
     let mut buf = String::with_capacity(source.len());
-    let mut open = None;
+    let mut open = Kind::None;
     let mut last = 0usize;
 
     let mut lex = Token::lexer(source);
@@ -80,30 +105,32 @@ where
         tokens[0] = tokens[1];
         tokens[1] = lex.token;
 
-        let tag = Token::tag(&tokens);
+        let kind = Token::kind(&tokens);
 
-        if open != tag {
+        if open != kind {
             // Close previous tag
-            if let Some(tag) = open {
+            if let Some(tag) = HIGHLIGHT_TAG[open as usize] {
                 buf.push_str("</");
                 buf.push_str(tag);
                 buf.push_str(">");
             }
 
             // Include trivia
-            escape_write(&mut buf, &source[last..lex.range().start]);
+            let _ = buf.write_escaped(&source[last..lex.range().start]);
 
             // Open new tag
-            if let Some(tag) = tag {
+            if let Some(tag) = HIGHLIGHT_TAG[kind as usize] {
                 buf.push_str("<");
                 buf.push_str(tag);
                 buf.push_str(">");
             }
-            open = tag;
-            escape_write(&mut buf, lex.slice());
+
+            open = kind;
+
+            let _ = buf.write_escaped(lex.slice());
         } else {
             // Include trivia
-            escape_write(&mut buf, &source[last..lex.range().end]);
+            let _ = buf.write_escaped(&source[last..lex.range().end]);
         }
 
         last = lex.range().end;
@@ -111,8 +138,8 @@ where
         lex.advance();
     }
 
-    // Close stale tag
-    if let Some(tag) = open {
+    // Close tail tag
+    if let Some(tag) = HIGHLIGHT_TAG[open as usize] {
         buf.push_str("</");
         buf.push_str(tag);
         buf.push_str(">");
@@ -121,26 +148,4 @@ where
     buf.push_str("</code></pre>");
 
     buf
-}
-
-fn escape_write(buf: &mut String, part: &str) {
-    let mut start = 0;
-
-    for (idx, byte) in part.bytes().enumerate() {
-        let replace = match byte {
-            b'<' => "&lt;",
-            b'>' => "&gt;",
-            b'&' => "&amp;",
-            b'"' => "&quot;",
-            b'\'' => "&#39;",
-            _ => continue,
-        };
-
-        buf.push_str(&part[start..idx]);
-        buf.push_str(replace);
-
-        start = idx + 1;
-    }
-
-    buf.push_str(&part[start..]);
 }
