@@ -11,13 +11,13 @@ mod parse;
 mod section;
 
 use std::borrow::Cow;
-use std::hash::Hasher;
 use std::fs::File;
+use std::hash::Hasher;
 use std::io;
 use std::path::Path;
 
-use crate::{Content, Error};
 use crate::encoding::{Encoder, EscapingIOEncoder};
+use crate::{Content, Error};
 
 use fnv::FnvHasher;
 
@@ -66,12 +66,11 @@ impl<'tpl> Template<'tpl> {
             str::from_utf8_unchecked(slice::from_raw_parts(ptr, len))
         };
 
-        let mut iter = source.as_bytes()
-            .get(..tpl.source.len().saturating_sub(1))
-            .unwrap_or(&[])
-            .iter()
-            .map(|b| unsafe { &*(b as *const u8 as *const [u8; 2]) }) // Because we iterate up till last byte,
-            .enumerate();                                             // this is safe.
+        let mut iter = source
+            .as_bytes()
+            .windows(2)
+            .map(|w| [w[0], w[1]])
+            .enumerate();
 
         let mut last = 0;
 
@@ -158,7 +157,6 @@ impl Template<'static> {
     }
 }
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tag {
     /// `{{escaped}}` tag
@@ -218,12 +216,15 @@ mod test {
 
     #[test]
     fn block_hashes_correctly() {
-        assert_eq!(Block::new("", "test", Tag::Escaped), Block {
-            html: "",
-            name: "test",
-            hash: 0xf9e6e6ef197c2b25,
-            tag: Tag::Escaped,
-        });
+        assert_eq!(
+            Block::new("", "test", Tag::Escaped),
+            Block {
+                html: "",
+                name: "test",
+                hash: 0xf9e6e6ef197c2b25,
+                tag: Tag::Escaped,
+            }
+        );
     }
 
     #[test]
@@ -231,11 +232,14 @@ mod test {
         let source = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{{body}}}</div>";
         let tpl = Template::new(source).unwrap();
 
-        assert_eq!(&tpl.blocks, &[
-            Block::new("<title>", "title", Tag::Escaped),
-            Block::new("</title><h1>", "title", Tag::Escaped),
-            Block::new("</h1><div>", "body", Tag::Unescaped),
-        ]);
+        assert_eq!(
+            &tpl.blocks,
+            &[
+                Block::new("<title>", "title", Tag::Escaped),
+                Block::new("</title><h1>", "title", Tag::Escaped),
+                Block::new("</h1><div>", "body", Tag::Unescaped),
+            ]
+        );
 
         assert_eq!(tpl.tail, "</div>");
     }
@@ -245,14 +249,17 @@ mod test {
         let source = "<body><h1>{{ title }}</h1>{{#posts}}<article>{{name}}</article>{{/posts}}{{^posts}}<p>Nothing here :(</p>{{/posts}}</body>";
         let tpl = Template::new(source).unwrap();
 
-        assert_eq!(&tpl.blocks, &[
-            Block::new("<body><h1>", "title", Tag::Escaped),
-            Block::new("</h1>", "posts", Tag::Section(2)),
-            Block::new("<article>", "name", Tag::Escaped),
-            Block::new("</article>", "posts", Tag::Closing),
-            Block::new("", "posts", Tag::Inverse(1)),
-            Block::new("<p>Nothing here :(</p>", "posts", Tag::Closing),
-        ]);
+        assert_eq!(
+            &tpl.blocks,
+            &[
+                Block::new("<body><h1>", "title", Tag::Escaped),
+                Block::new("</h1>", "posts", Tag::Section(2)),
+                Block::new("<article>", "name", Tag::Escaped),
+                Block::new("</article>", "posts", Tag::Closing),
+                Block::new("", "posts", Tag::Inverse(1)),
+                Block::new("<p>Nothing here :(</p>", "posts", Tag::Closing),
+            ]
+        );
 
         assert_eq!(tpl.tail, "</body>");
     }

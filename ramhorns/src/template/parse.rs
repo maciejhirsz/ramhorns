@@ -7,7 +7,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
-use super::{Template, Block, Tag, Error};
+use super::{Block, Error, Tag, Template};
 
 impl<'tpl> Template<'tpl> {
     pub(crate) fn parse<Iter>(
@@ -18,12 +18,12 @@ impl<'tpl> Template<'tpl> {
         until: Option<&'tpl str>,
     ) -> Result<usize, Error>
     where
-        Iter: Iterator<Item = (usize, &'tpl [u8; 2])>,
+        Iter: Iterator<Item = (usize, [u8; 2])>,
     {
         let blocks_at_start = self.blocks.len();
 
         while let Some((start, bytes)) = iter.next() {
-            if bytes == b"{{" {
+            if bytes == [b'{', b'{'] {
                 // Skip a byte since we got a double
                 iter.next();
 
@@ -36,7 +36,7 @@ impl<'tpl> Template<'tpl> {
                         b'{' => {
                             tag = Tag::Unescaped;
                             end_skip = 3;
-                        },
+                        }
                         b'#' => tag = Tag::Section(0),
                         b'^' => tag = Tag::Inverse(0),
                         b'/' => tag = Tag::Closing,
@@ -57,11 +57,11 @@ impl<'tpl> Template<'tpl> {
                 let html = &source[*last..start];
 
                 loop {
-                    if let (end, b"}}") = iter.next().ok_or_else(|| Error::UnclosedTag)? {
+                    if let (end, [b'}', b'}']) = iter.next().ok_or_else(|| Error::UnclosedTag)? {
                         // Skip the braces
                         if end_skip == 3 {
                             match iter.next() {
-                                Some((_, b"}}")) => {},
+                                Some((_, [b'}', b'}'])) => {}
                                 _ => return Err(Error::UnclosedTag),
                             }
                         }
@@ -75,19 +75,18 @@ impl<'tpl> Template<'tpl> {
                         let insert_index = self.blocks.len();
 
                         self.capacity_hint += html.len();
-                        self.blocks.insert(insert_index, Block::new(html, name, tag));
+                        self.blocks
+                            .insert(insert_index, Block::new(html, name, tag));
 
                         match tag {
-                            Tag::Section(_) |
-                            Tag::Inverse(_) => {
+                            Tag::Section(_) | Tag::Inverse(_) => {
                                 let count = self.parse(source, iter, last, Some(name))?;
 
                                 match self.blocks[insert_index].tag {
-                                    Tag::Section(ref mut c) |
-                                    Tag::Inverse(ref mut c) => *c = count,
-                                    _ => {},
+                                    Tag::Section(ref mut c) | Tag::Inverse(ref mut c) => *c = count,
+                                    _ => {}
                                 }
-                            },
+                            }
                             Tag::Closing => {
                                 if let Some(until) = until {
                                     if until != name {
@@ -96,8 +95,8 @@ impl<'tpl> Template<'tpl> {
                                 }
 
                                 return Ok(self.blocks.len() - blocks_at_start);
-                            },
-                            _ => {},
+                            }
+                            _ => {}
                         };
 
                         break;
