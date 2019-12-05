@@ -421,13 +421,12 @@ fn simple_partials_folder() {
         body: "This is a really simple test of the rendering!",
     };
 
-    assert!(map.contains_key("head.rh"));
     assert_eq!(
-        map["basic.rh"].render(&post),
+        map.get("basic.rh").unwrap().render(&post),
         read_to_string("templates/basic.result").unwrap().trim_end()
     );
     assert_eq!(
-        map["another.rh"].render(&post),
+        map.get("another.rh").unwrap().render(&post),
         read_to_string("templates/another.result")
             .unwrap()
             .trim_end()

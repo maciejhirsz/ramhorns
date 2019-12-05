@@ -7,7 +7,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
-use super::{Block, Error, Tag, Template, Templates};
+use super::{Block, Error, Tag, Template, Partials};
 use std::path::Path;
 
 impl<'tpl> Template<'tpl> {
@@ -18,7 +18,7 @@ impl<'tpl> Template<'tpl> {
         last: &mut usize,
         until: Option<&'tpl str>,
         dir: &Path,
-        partials: &mut Templates<'tpl>,
+        partials: &mut Partials<'tpl>,
     ) -> Result<usize, Error>
     where
         Iter: Iterator<Item = (usize, &'tpl [u8; 2])>,

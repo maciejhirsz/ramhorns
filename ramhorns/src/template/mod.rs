@@ -40,10 +40,13 @@ pub struct Template<'tpl> {
     source: Cow<'tpl, str>,
 
     /// Partials used in this template
-    partials: Option<Templates<'tpl>>,
+    partials: Option<Partials<'tpl>>,
 }
 
-type Templates<'tpl> = HashMap<Cow<'tpl, str>, Template<'tpl>>;
+/// A safe wrapper around the returned `HashMap` that prevents
+/// modifying its content
+pub struct Templates(Partials<'static>);
+type Partials<'tpl> = HashMap<Cow<'tpl, str>, Template<'tpl>>;
 
 impl<'tpl> Template<'tpl> {
     /// Create a new `Template` out of the source.
@@ -54,14 +57,14 @@ impl<'tpl> Template<'tpl> {
     where
         Source: Into<Cow<'tpl, str>>,
     {
-        let mut partials = Templates::new();
+        let mut partials = Partials::new();
         Template::load(source, Path::new("."), &mut partials).map(move |mut template| {
             template.partials = Some(partials);
             template
         })
     }
 
-    fn load<Source>(source: Source, dir: &Path, parts: &mut Templates<'tpl>) -> Result<Self, Error>
+    fn load<Source>(source: Source, dir: &Path, parts: &mut Partials<'tpl>) -> Result<Self, Error>
     where
         Source: Into<Cow<'tpl, str>>,
     {
@@ -164,7 +167,7 @@ impl Template<'static> {
     /// let tpl = Template::from_file("./templates/my_template.html").unwrap();
     /// ```
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
-        let mut partials = Templates::new();
+        let mut partials = Partials::new();
         Template::load(
             std::fs::read_to_string(&path)?,
             &path
@@ -186,13 +189,13 @@ impl Template<'static> {
     /// # use ramhorns::Template;
     /// let tpls = Template::from_folder("./templates").unwrap();
     /// let content = "I am the content";
-    /// let rendered = tpls["hello.rh"].render(&content);
+    /// let rendered = tpls.get("hello").unwrap().render(&content);
     /// ```
-    pub fn from_folder<P: AsRef<Path>>(dir: P) -> Result<Templates<'static>, Error> {
+    pub fn from_folder<P: AsRef<Path>>(dir: P) -> Result<Templates, Error> {
         let dir = dir.as_ref().canonicalize()?;
-        let mut templates = Templates::new();
+        let mut templates = Partials::new();
 
-        fn load_folder(dir: &Path, path: &Path, templates: &mut Templates) -> Result<(), Error> {
+        fn load_folder(dir: &Path, path: &Path, templates: &mut Partials) -> Result<(), Error> {
             for entry in std::fs::read_dir(path)? {
                 let path = entry?.path();
                 if path.is_dir() {
@@ -210,7 +213,17 @@ impl Template<'static> {
         }
         load_folder(&dir, &dir, &mut templates)?;
 
-        Ok(templates)
+        Ok(Templates(templates))
+    }
+}
+
+impl Templates {
+    /// Get the template with the given name, if it exists
+    pub fn get<S>(&self, name: &S) -> Option<&Template<'static>>
+    where
+    	Cow<'static, str>: std::borrow::Borrow<S>,
+    	S: std::hash::Hash + Eq + ?Sized {
+        self.0.get(name)
     }
 }
 
