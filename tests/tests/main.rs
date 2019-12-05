@@ -1,4 +1,4 @@
-use ramhorns::{Template, Content};
+use ramhorns::{Content, Template};
 
 #[derive(Content)]
 struct Post<'a> {
@@ -16,8 +16,11 @@ fn simple_render() {
         body: "This is a really simple test of the rendering!",
     });
 
-    assert_eq!(&rendered, "<title>Hello, Ramhorns!</title><h1>Hello, Ramhorns!</h1>\
-                           <div>This is a really simple test of the rendering!</div>");
+    assert_eq!(
+        &rendered,
+        "<title>Hello, Ramhorns!</title><h1>Hello, Ramhorns!</h1>\
+         <div>This is a really simple test of the rendering!</div>"
+    );
 }
 
 #[test]
@@ -27,13 +30,20 @@ fn simple_render_to_writer() {
 
     let mut buf = Vec::new();
 
-    tpl.render_to_writer(&mut buf, &Post {
-        title: "Hello, Ramhorns!",
-        body: "This is a really simple test of the rendering!",
-    }).unwrap();
+    tpl.render_to_writer(
+        &mut buf,
+        &Post {
+            title: "Hello, Ramhorns!",
+            body: "This is a really simple test of the rendering!",
+        },
+    )
+    .unwrap();
 
-    assert_eq!(&buf[..], &b"<title>Hello, Ramhorns!</title><h1>Hello, Ramhorns!</h1>\
-                            <div>This is a really simple test of the rendering!</div>"[..]);
+    assert_eq!(
+        &buf[..],
+        &b"<title>Hello, Ramhorns!</title><h1>Hello, Ramhorns!</h1>\
+                            <div>This is a really simple test of the rendering!</div>"[..]
+    );
 }
 
 #[test]
@@ -46,12 +56,18 @@ fn simple_render_hash_map() {
     let mut map = HashMap::new();
 
     map.insert("title", "Hello, Ramhorns!");
-    map.insert("body", "This is a test of rendering a template with a HashMap Content!");
+    map.insert(
+        "body",
+        "This is a test of rendering a template with a HashMap Content!",
+    );
 
     let rendered = tpl.render(&map);
 
-    assert_eq!(&rendered, "<title>Hello, Ramhorns!</title><h1>Hello, Ramhorns!</h1>\
-                           <div>This is a test of rendering a template with a HashMap Content!</div>");
+    assert_eq!(
+        &rendered,
+        "<title>Hello, Ramhorns!</title><h1>Hello, Ramhorns!</h1>\
+         <div>This is a test of rendering a template with a HashMap Content!</div>"
+    );
 }
 
 #[test]
@@ -64,12 +80,18 @@ fn simple_render_btree_map() {
     let mut map = BTreeMap::new();
 
     map.insert("title", "Hello, Ramhorns!");
-    map.insert("body", "This is a test of rendering a template with a BTreeMap Content!");
+    map.insert(
+        "body",
+        "This is a test of rendering a template with a BTreeMap Content!",
+    );
 
     let rendered = tpl.render(&map);
 
-    assert_eq!(&rendered, "<title>Hello, Ramhorns!</title><h1>Hello, Ramhorns!</h1>\
-                           <div>This is a test of rendering a template with a BTreeMap Content!</div>");
+    assert_eq!(
+        &rendered,
+        "<title>Hello, Ramhorns!</title><h1>Hello, Ramhorns!</h1>\
+         <div>This is a test of rendering a template with a BTreeMap Content!</div>"
+    );
 }
 
 #[test]
@@ -82,15 +104,18 @@ fn simple_render_with_comments() {
         body: "This is a really simple test of the rendering!",
     });
 
-    assert_eq!(&rendered, "<title>Hello, Ramhorns!</title><h1>Hello, Ramhorns!</h1>\
-                           <div>This is a really simple test of the rendering!</div>");
+    assert_eq!(
+        &rendered,
+        "<title>Hello, Ramhorns!</title><h1>Hello, Ramhorns!</h1>\
+         <div>This is a really simple test of the rendering!</div>"
+    );
 }
 
 #[test]
 fn escaped_vs_unescaped() {
     #[derive(Content)]
     struct Dummy {
-        dummy: &'static str
+        dummy: &'static str,
     }
 
     let tpl = Template::new("Escaped: {{dummy}} Unescaped: {{{dummy}}}").unwrap();
@@ -99,16 +124,18 @@ fn escaped_vs_unescaped() {
         dummy: "This is a <strong>test</strong>!",
     });
 
-    assert_eq!(rendered, "Escaped: This is a &lt;strong&gt;test&lt;/strong&gt;! \
-                          Unescaped: This is a <strong>test</strong>!");
+    assert_eq!(
+        rendered,
+        "Escaped: This is a &lt;strong&gt;test&lt;/strong&gt;! \
+         Unescaped: This is a <strong>test</strong>!"
+    );
 }
-
 
 #[test]
 fn escaped_vs_unescaped_ampersand() {
     #[derive(Content)]
     struct Dummy {
-        dummy: &'static str
+        dummy: &'static str,
     }
 
     let tpl = Template::new("Escaped: {{dummy}} Unescaped: {{& dummy}}").unwrap();
@@ -117,8 +144,11 @@ fn escaped_vs_unescaped_ampersand() {
         dummy: "This is a <strong>test</strong>!",
     });
 
-    assert_eq!(rendered, "Escaped: This is a &lt;strong&gt;test&lt;/strong&gt;! \
-                          Unescaped: This is a <strong>test</strong>!");
+    assert_eq!(
+        rendered,
+        "Escaped: This is a &lt;strong&gt;test&lt;/strong&gt;! \
+         Unescaped: This is a <strong>test</strong>!"
+    );
 }
 
 #[test]
@@ -132,7 +162,6 @@ fn handles_tuple_structs() {
 
     assert_eq!(rendered, "one two zero");
 }
-
 
 #[test]
 fn handles_unit_structs() {
@@ -162,8 +191,11 @@ fn simple_render_with_strings() {
         body: "This is a really simple test of the rendering!".to_string(),
     });
 
-    assert_eq!(&rendered, "<title>Hello, Ramhorns!</title><h1>Hello, Ramhorns!</h1>\
-                           <div>This is a really simple test of the rendering!</div>");
+    assert_eq!(
+        &rendered,
+        "<title>Hello, Ramhorns!</title><h1>Hello, Ramhorns!</h1>\
+         <div>This is a really simple test of the rendering!</div>"
+    );
 }
 
 #[test]
@@ -200,12 +232,8 @@ fn can_render_sections_from_bool() {
 
     let tpl = Template::new("Hello!{{#secret}} This is a secret!{{/secret}}").unwrap();
 
-    let show = tpl.render(&Conditional {
-        secret: true,
-    });
-    let hide = tpl.render(&Conditional {
-        secret: false,
-    });
+    let show = tpl.render(&Conditional { secret: true });
+    let hide = tpl.render(&Conditional { secret: false });
 
     assert_eq!(show, "Hello! This is a secret!");
     assert_eq!(hide, "Hello!");
@@ -220,12 +248,8 @@ fn can_render_inverse_sections_from_bool() {
 
     let tpl = Template::new("Hello!{{^secret}} This is NOT a secret!{{/secret}}").unwrap();
 
-    let show = tpl.render(&Conditional {
-        secret: true,
-    });
-    let hide = tpl.render(&Conditional {
-        secret: false,
-    });
+    let show = tpl.render(&Conditional { secret: true });
+    let hide = tpl.render(&Conditional { secret: false });
 
     assert_eq!(show, "Hello!");
     assert_eq!(hide, "Hello! This is NOT a secret!");
@@ -240,12 +264,8 @@ fn can_render_inverse_sections_for_empty_strs() {
 
     let tpl = Template::new("Hello {{name}}{{^name}}Anonymous{{/name}}!").unwrap();
 
-    let named = tpl.render(&Person {
-        name: "Maciej",
-    });
-    let unnamed = tpl.render(&Person {
-        name: "",
-    });
+    let named = tpl.render(&Person { name: "Maciej" });
+    let unnamed = tpl.render(&Person { name: "" });
 
     assert_eq!(named, "Hello Maciej!");
     assert_eq!(unnamed, "Hello Anonymous!");
@@ -261,13 +281,15 @@ fn can_render_lists_from_slices() {
     #[derive(Content)]
     struct Page<'a> {
         title: &'a str,
-        articles: &'a [Article<'a>]
+        articles: &'a [Article<'a>],
     }
 
-    let tpl = Template::new("<h1>{{title}}</h1>\
-                             {{#articles}}<article>{{title}}</article>{{/articles}}\
-                             {{^articles}}<p>No articles :(</p>{{/articles}}").unwrap();
-
+    let tpl = Template::new(
+        "<h1>{{title}}</h1>\
+         {{#articles}}<article>{{title}}</article>{{/articles}}\
+         {{^articles}}<p>No articles :(</p>{{/articles}}",
+    )
+    .unwrap();
 
     let blog = tpl.render(&Page {
         title: "Awesome Blog",
@@ -289,13 +311,19 @@ fn can_render_lists_from_slices() {
         articles: &[],
     });
 
-    assert_eq!(blog, "<h1>Awesome Blog</h1>\
-                      <article>How is Ramhorns this fast?</article>\
-                      <article>Look at that cat pic!</article>\
-                      <article>Hello World!</article>");
+    assert_eq!(
+        blog,
+        "<h1>Awesome Blog</h1>\
+         <article>How is Ramhorns this fast?</article>\
+         <article>Look at that cat pic!</article>\
+         <article>Hello World!</article>"
+    );
 
-    assert_eq!(empty, "<h1>Sad page :(</h1>\
-                       <p>No articles :(</p>");
+    assert_eq!(
+        empty,
+        "<h1>Sad page :(</h1>\
+         <p>No articles :(</p>"
+    );
 }
 
 #[test]
@@ -311,10 +339,12 @@ fn can_render_lists_from_vecs() {
         articles: Vec<Article>,
     }
 
-    let tpl = Template::new("<h1>{{title}}</h1>\
-                             {{#articles}}<article>{{title}}</article>{{/articles}}\
-                             {{^articles}}<p>No articles :(</p>{{/articles}}").unwrap();
-
+    let tpl = Template::new(
+        "<h1>{{title}}</h1>\
+         {{#articles}}<article>{{title}}</article>{{/articles}}\
+         {{^articles}}<p>No articles :(</p>{{/articles}}",
+    )
+    .unwrap();
 
     let blog = tpl.render(&Page {
         title: "Awesome Blog".into(),
@@ -336,13 +366,19 @@ fn can_render_lists_from_vecs() {
         articles: vec![],
     });
 
-    assert_eq!(blog, "<h1>Awesome Blog</h1>\
-                      <article>How is Ramhorns this fast?</article>\
-                      <article>Look at that cat pic!</article>\
-                      <article>Hello World!</article>");
+    assert_eq!(
+        blog,
+        "<h1>Awesome Blog</h1>\
+         <article>How is Ramhorns this fast?</article>\
+         <article>Look at that cat pic!</article>\
+         <article>Hello World!</article>"
+    );
 
-    assert_eq!(empty, "<h1>Sad page :(</h1>\
-                       <p>No articles :(</p>");
+    assert_eq!(
+        empty,
+        "<h1>Sad page :(</h1>\
+         <p>No articles :(</p>"
+    );
 }
 
 #[test]
@@ -363,4 +399,37 @@ fn can_render_markdown() {
     });
 
     assert_eq!(html, "<h1>This is *the* title</h1><div><p>This is <em>the</em> <strong>body</strong>!</p>\n</div>");
+}
+
+#[test]
+fn simple_partials() {
+    println!("{:?}", std::env::current_dir());
+    println!("{}", std::path::Path::new("templates/layout.rh").exists());
+    let tpl = Template::from_file("templates/layout.rh").unwrap();
+    let html = tpl.render(&"");
+
+    assert_eq!(html, "<head><h1>Head</h1></head>");
+}
+
+#[test]
+fn simple_partials_folder() {
+    use std::fs::read_to_string;
+
+    let map = Template::from_folder("templates").unwrap();
+    let post = Post {
+        title: "Hello, Ramhorns!",
+        body: "This is a really simple test of the rendering!",
+    };
+
+    assert!(map.contains_key("head.rh"));
+    assert_eq!(
+        map["basic.rh"].render(&post),
+        read_to_string("templates/basic.result").unwrap().trim_end()
+    );
+    assert_eq!(
+        map["another.rh"].render(&post),
+        read_to_string("templates/another.result")
+            .unwrap()
+            .trim_end()
+    );
 }

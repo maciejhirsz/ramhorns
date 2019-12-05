@@ -1,0 +1,5 @@
+{{>head.rh}}
+<body>
+    <div>{{body}}</div>
+    {{>footer.rh}}
+</body>

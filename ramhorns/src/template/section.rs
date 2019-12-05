@@ -8,8 +8,8 @@
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
 use super::{Block, Tag};
-use crate::Content;
 use crate::encoding::Encoder;
+use crate::Content;
 
 /// A section of a `Template` that can be rendered individually, usually delimited by
 /// `{{#section}} ... {{/section}}` tags.
@@ -19,10 +19,10 @@ pub struct Section<'section> {
 }
 
 impl<'section> Section<'section> {
-    pub(crate) const fn new(blocks: &'section [Block<'section>]) -> Self {
-        Self {
-            blocks,
-        }
+    pub(crate) const fn new(
+        blocks: &'section [Block<'section>],
+    ) -> Self {
+        Self { blocks }
     }
 
     /// Render this section once to the provided `Encoder`. Some `Content`s will call
@@ -41,19 +41,30 @@ impl<'section> Section<'section> {
 
             match block.tag {
                 Tag::Escaped => content.render_field_escaped(block.hash, block.name, encoder)?,
-                Tag::Unescaped => content.render_field_unescaped(block.hash, block.name, encoder)?,
+                Tag::Unescaped => {
+                    content.render_field_unescaped(block.hash, block.name, encoder)?
+                }
                 Tag::Section(count) => {
-                    content.render_field_section(block.hash, block.name, Section::new(&self.blocks[index..index + count]), encoder)?;
+                    content.render_field_section(
+                        block.hash,
+                        block.name,
+                        Section::new(&self.blocks[index..index + count]),
+                        encoder,
+                    )?;
 
                     index += count;
-                },
+                }
                 Tag::Inverse(count) => {
-                    content.render_field_inverse(block.hash, block.name, Section::new(&self.blocks[index..index + count]), encoder)?;
+                    content.render_field_inverse(
+                        block.hash,
+                        block.name,
+                        Section::new(&self.blocks[index..index + count]),
+                        encoder,
+                    )?;
 
                     index += count;
-                },
-                Tag::Closing |
-                Tag::Comment => {},
+                }
+                Tag::Closing | Tag::Comment | Tag::Partial => {}
             }
         }
 
