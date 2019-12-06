@@ -76,16 +76,16 @@
 
 #![warn(missing_docs)]
 
+mod cmark;
 mod content;
 mod error;
 mod template;
-mod cmark;
 
 pub mod encoding;
 
-pub use error::Error;
-pub use template::{Template, Section};
 pub use content::Content;
+pub use error::Error;
+pub use template::{Section, Template, Templates};
 
 #[cfg(feature = "export_derive")]
 pub use ramhorns_derive::Content;

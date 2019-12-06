@@ -1,4 +1,4 @@
-use ramhorns::{Content, Template};
+use ramhorns::{Content, Template, Templates};
 
 #[derive(Content)]
 struct Post<'a> {
@@ -415,18 +415,18 @@ fn simple_partials() {
 fn simple_partials_folder() {
     use std::fs::read_to_string;
 
-    let map = Template::from_folder("templates").unwrap();
+    let tpls = Templates::from_folder("templates").unwrap();
     let post = Post {
         title: "Hello, Ramhorns!",
         body: "This is a really simple test of the rendering!",
     };
 
     assert_eq!(
-        map.get("basic.rh").unwrap().render(&post),
+        tpls.get("basic.rh").unwrap().render(&post),
         read_to_string("templates/basic.result").unwrap().trim_end()
     );
     assert_eq!(
-        map.get("another.rh").unwrap().render(&post),
+        tpls.get("another.rh").unwrap().render(&post),
         read_to_string("templates/another.result")
             .unwrap()
             .trim_end()
