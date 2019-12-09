@@ -222,7 +222,7 @@ impl Templates {
     /// Get the template with the given name, if it exists
     pub fn get<S>(&self, name: &S) -> Option<&Template<'static>>
     where
-    	Cow<'static, str>: std::borrow::Borrow<S>,
+    	for <'a> Cow<'a, str>: std::borrow::Borrow<S>,
     	S: std::hash::Hash + Eq + ?Sized {
         self.0.get(name)
     }
