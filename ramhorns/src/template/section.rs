@@ -64,7 +64,7 @@ impl<'section> Section<'section> {
 
                     index += count;
                 }
-                Tag::Closing | Tag::Comment | Tag::Partial => {}
+                _ => {}
             }
         }
 

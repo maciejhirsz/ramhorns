@@ -17,7 +17,7 @@ use std::hash::Hasher;
 use std::io;
 use std::path::Path;
 
-use crate::encoding::{Encoder, EscapingIOEncoder};
+use crate::encoding::EscapingIOEncoder;
 use crate::{Content, Error};
 
 use fnv::FnvHasher;
@@ -32,9 +32,6 @@ pub struct Template<'tpl> {
 
     /// Tailing html that isn't part of any `Block`
     capacity_hint: usize,
-
-    /// Tailing html that isn't part of any `Block`
-    tail: &'tpl str,
 
     /// Source from which this template was parsed.
     source: Cow<'tpl, str>,
@@ -71,7 +68,6 @@ impl<'tpl> Template<'tpl> {
         let mut tpl = Template {
             blocks: Vec::new(),
             capacity_hint: 0,
-            tail: "",
             source: source.into(),
             partials: None,
         };
@@ -98,14 +94,17 @@ impl<'tpl> Template<'tpl> {
         let mut last = 0;
 
         tpl.parse(source, &mut iter, &mut last, None, dir, parts)?;
-        tpl.tail = &source[last..].trim_end();
+        let tail = &source[last..].trim_end();
+        tpl.blocks.push(Block::new(tail, "", Tag::Tail));
+        tpl.capacity_hint += tail.len();
+            
 
         Ok(tpl)
     }
 
     /// Estimate how big of a buffer should be allocated to render this `Template`.
     pub fn capacity_hint(&self) -> usize {
-        self.capacity_hint + self.tail.len()
+        self.capacity_hint
     }
 
     /// Render this `Template` with a given `Content` to a `String`.
@@ -120,7 +119,6 @@ impl<'tpl> Template<'tpl> {
         // Ignore the result, cannot fail
         let _ = Section::new(&self.blocks).render_once(content, &mut buf);
 
-        buf.push_str(self.tail);
         buf
     }
 
@@ -131,10 +129,7 @@ impl<'tpl> Template<'tpl> {
         C: Content,
     {
         let mut encoder = EscapingIOEncoder::new(writer);
-
-        Section::new(&self.blocks).render_once(content, &mut encoder)?;
-
-        encoder.write_unescaped(self.tail)
+        Section::new(&self.blocks).render_once(content, &mut encoder)
     }
 
     /// Render this `Template` with a given `Content` to a file.
@@ -148,9 +143,7 @@ impl<'tpl> Template<'tpl> {
         let writer = BufWriter::new(File::create(path)?);
         let mut encoder = EscapingIOEncoder::new(writer);
 
-        Section::new(&self.blocks).render_once(content, &mut encoder)?;
-
-        encoder.write_unescaped(self.tail)
+        Section::new(&self.blocks).render_once(content, &mut encoder)
     }
 
     /// Get a reference to a source this `Template` was created from.
@@ -250,6 +243,9 @@ pub enum Tag {
 
     /// `{{>partial}}` tag
     Partial,
+
+    /// Tailing html
+    Tail,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -312,10 +308,9 @@ mod test {
                 Block::new("<title>", "title", Tag::Escaped),
                 Block::new("</title><h1>", "title", Tag::Escaped),
                 Block::new("</h1><div>", "body", Tag::Unescaped),
+                Block::new("</div>", "", Tag::Tail),
             ]
         );
-
-        assert_eq!(tpl.tail, "</div>");
     }
 
     #[test]
@@ -332,9 +327,8 @@ mod test {
                 Block::new("</article>", "posts", Tag::Closing),
                 Block::new("", "posts", Tag::Inverse(1)),
                 Block::new("<p>Nothing here :(</p>", "posts", Tag::Closing),
+                Block::new("</body>", "", Tag::Tail),
             ]
         );
-
-        assert_eq!(tpl.tail, "</body>");
     }
 }

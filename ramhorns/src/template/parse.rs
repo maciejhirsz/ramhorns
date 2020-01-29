@@ -113,8 +113,7 @@ impl<'tpl> Template<'tpl> {
                                 };
                                 let partial = &partials[name];
                                 self.blocks.extend(&partial.blocks);
-                                self.blocks.push(Block::new(partial.tail, name, tag));
-                                self.capacity_hint += partial.capacity_hint + partial.tail.len();
+                                self.capacity_hint += partial.capacity_hint;
                             }
                             _ => {}
                         };
