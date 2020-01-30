@@ -1,0 +1,1 @@
+<div>{{>../Cargo.toml}}</div>

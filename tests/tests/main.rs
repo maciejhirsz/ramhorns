@@ -403,9 +403,7 @@ fn can_render_markdown() {
 
 #[test]
 fn simple_partials() {
-    println!("{:?}", std::env::current_dir());
-    println!("{}", std::path::Path::new("templates/layout.rh").exists());
-    let tpl = Template::from_file("templates/layout.rh").unwrap();
+    let tpl = Template::from_file("templates/layout.html").unwrap();
     let html = tpl.render(&"");
 
     assert_eq!(html, "<head><h1>Head</h1></head>");
@@ -422,13 +420,32 @@ fn simple_partials_folder() {
     };
 
     assert_eq!(
-        tpls.get("basic.rh").unwrap().render(&post),
+        tpls.get("basic.html").unwrap().render(&post),
         read_to_string("templates/basic.result").unwrap().trim_end()
     );
     assert_eq!(
-        tpls.get("another.rh").unwrap().render(&post),
+        tpls.get("another.html").unwrap().render(&post),
         read_to_string("templates/another.result")
             .unwrap()
             .trim_end()
     );
+}
+
+#[test]
+fn illegal_partials() {
+    use ramhorns::Error;
+
+    let tpl1 = Template::new("<div>{{>templates/layout.html}}</div>");
+    let tpl2 = Template::from_file("templates/illegal.hehe");
+
+    if let Err(Error::PartialsDisabled) = tpl1 {
+    } else {
+        panic!("Partials loaded while parsing from &str");
+    }
+
+    if let Err(Error::IllegalPartial(name)) = tpl2 {
+        assert_eq!(name, "../Cargo.toml".into());
+    } else {
+        panic!("Partials loaded out of the allowed directory");
+    }
 }

@@ -8,20 +8,16 @@
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
 use super::{Block, Error, Tag, Template, Partials};
-use std::path::Path;
 
 impl<'tpl> Template<'tpl> {
-    pub(crate) fn parse<Iter>(
+    pub(crate) fn parse(
         &mut self,
         source: &'tpl str,
-        iter: &mut Iter,
+        iter: &mut impl Iterator<Item = (usize, &'tpl [u8; 2])>,
         last: &mut usize,
         until: Option<&'tpl str>,
-        dir: &Path,
-        partials: &mut Partials<'tpl>,
+        partials: &mut impl Partials<'tpl>,
     ) -> Result<usize, Error>
-    where
-        Iter: Iterator<Item = (usize, &'tpl [u8; 2])>,
     {
         let blocks_at_start = self.blocks.len();
 
@@ -85,7 +81,7 @@ impl<'tpl> Template<'tpl> {
                         match tag {
                             Tag::Section(_) | Tag::Inverse(_) => {
                                 let count =
-                                    self.parse(source, iter, last, Some(name), dir, partials)?;
+                                    self.parse(source, iter, last, Some(name), partials)?;
 
                                 match self.blocks[insert_index].tag {
                                     Tag::Section(ref mut c) | Tag::Inverse(ref mut c) => *c = count,
@@ -102,16 +98,7 @@ impl<'tpl> Template<'tpl> {
                                 return Ok(self.blocks.len() - blocks_at_start);
                             }
                             Tag::Partial => {
-                                let path = dir.join(name);
-                                if !partials.contains_key(name) {
-                                    let template = Template::load(
-                                        std::fs::read_to_string(&path)?,
-                                        dir,
-                                        partials,
-                                    )?;
-                                    partials.insert(name.into(), template);
-                                };
-                                let partial = &partials[name];
+                                let partial = partials.get_partial(name)?;
                                 self.blocks.extend(&partial.blocks);
                                 self.capacity_hint += partial.capacity_hint;
                             }

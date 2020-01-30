@@ -15,7 +15,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::hash::Hasher;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::encoding::EscapingIOEncoder;
 use crate::{Content, Error};
@@ -37,13 +37,15 @@ pub struct Template<'tpl> {
     source: Cow<'tpl, str>,
 
     /// Partials used in this template
-    partials: Option<Partials<'tpl>>,
+    partials: Vec<Cow<'tpl, str>>,
 }
 
 /// A safe wrapper around a `HashMap` containing preprocessed templates
 /// of the type `Template`, accesible by their name
-pub struct Templates(Partials<'static>);
-type Partials<'tpl> = HashMap<Cow<'tpl, str>, Template<'tpl>>;
+pub struct Templates {
+    partials: HashMap<Cow<'static, str>, Template<'static>>,
+    dir: PathBuf,
+}
 
 impl<'tpl> Template<'tpl> {
     /// Create a new `Template` out of the source.
@@ -54,22 +56,19 @@ impl<'tpl> Template<'tpl> {
     where
         Source: Into<Cow<'tpl, str>>,
     {
-        let mut partials = Partials::new();
-        Template::load(source, Path::new("."), &mut partials).map(move |mut template| {
-            template.partials = Some(partials);
-            template
-        })
+        Template::load(source, &mut NoPartials)
     }
 
-    fn load<Source>(source: Source, dir: &Path, parts: &mut Partials<'tpl>) -> Result<Self, Error>
+    fn load<Source, T>(source: Source, partials: &mut T) -> Result<Self, Error>
     where
         Source: Into<Cow<'tpl, str>>,
+        T: Partials<'tpl>,
     {
         let mut tpl = Template {
             blocks: Vec::new(),
             capacity_hint: 0,
             source: source.into(),
-            partials: None,
+            partials: Vec::with_capacity(0),
         };
 
         // This is allows `Block`s inside this `Template` to be references of the `source` field.
@@ -93,11 +92,10 @@ impl<'tpl> Template<'tpl> {
 
         let mut last = 0;
 
-        tpl.parse(source, &mut iter, &mut last, None, dir, parts)?;
+        tpl.parse(source, &mut iter, &mut last, None, partials)?;
         let tail = &source[last..].trim_end();
         tpl.blocks.push(Block::new(tail, "", Tag::Tail));
         tpl.capacity_hint += tail.len();
-            
 
         Ok(tpl)
     }
@@ -160,64 +158,70 @@ impl Template<'static> {
     /// let tpl = Template::from_file("./templates/my_template.html").unwrap();
     /// ```
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
-        let mut partials = Partials::new();
-        Template::load(
-            std::fs::read_to_string(&path)?,
-            &path
-                .as_ref()
+        let mut partials = Templates::new(
+            path.as_ref()
                 .parent()
-                .unwrap_or(".".as_ref())
+                .unwrap_or_else(|| ".".as_ref())
                 .canonicalize()?,
-            &mut partials,
-        )
-        .map(move |mut template| {
-            template.partials = Some(partials);
-            template
+        );
+        Template::load(std::fs::read_to_string(&path)?, &mut partials).map(move |mut tpl| {
+            tpl.partials = partials.into_sources();
+            tpl
         })
     }
-
 }
 
 impl Templates {
-    /// Loads all the `.rh` files as templates from the given folder into a hashmap, making them
+    fn new(dir: PathBuf) -> Self {
+        Templates {
+            partials: HashMap::new(),
+            dir,
+        }
+    }
+
+    /// Loads all the `.html` files as templates from the given folder into a hashmap, making them
     /// accessible via their path, joining partials as required
     /// ```no_run
     /// # use ramhorns::Templates;
     /// let tpls = Templates::from_folder("./templates").unwrap();
     /// let content = "I am the content";
-    /// let rendered = tpls.get("hello").unwrap().render(&content);
+    /// let rendered = tpls.get("hello.html").unwrap().render(&content);
     /// ```
     pub fn from_folder<P: AsRef<Path>>(dir: P) -> Result<Self, Error> {
-        let dir = dir.as_ref().canonicalize()?;
-        let mut templates = Partials::new();
+        let mut templates = Templates::new(dir.as_ref().canonicalize()?);
 
-        fn load_folder(dir: &Path, path: &Path, templates: &mut Partials) -> Result<(), Error> {
+        fn load_folder(path: &Path, templates: &mut Templates) -> Result<(), Error> {
             for entry in std::fs::read_dir(path)? {
                 let path = entry?.path();
                 if path.is_dir() {
-                    load_folder(dir, &path, templates)?;
-                } else if path.extension().unwrap_or("".as_ref()) == "rh" {
-                    let name = path.strip_prefix(dir).unwrap_or(&path).to_string_lossy();
-                    if !templates.contains_key(&name) {
-                        let template =
-                            Template::load(std::fs::read_to_string(&path)?, dir, templates)?;
-                        templates.insert(name.into_owned().into(), template);
+                    load_folder(&path, templates)?;
+                } else if path.extension().unwrap_or("".as_ref()) == "html" {
+                    let name = path
+                        .strip_prefix(&templates.dir)
+                        .unwrap_or(&path)
+                        .to_string_lossy();
+                    if !templates.partials.contains_key(&name) {
+                        let template = Template::load(std::fs::read_to_string(&path)?, templates)?;
+                        templates
+                            .partials
+                            .insert(name.into_owned().into(), template);
                     }
                 }
             }
             Ok(())
         }
-        load_folder(&dir, &dir, &mut templates)?;
+        load_folder(&templates.dir.clone(), &mut templates)?;
 
-        Ok(Templates(templates))
+        Ok(templates)
     }
 
     /// Get the template with the given name, if it exists
     pub fn get<S>(&self, name: &S) -> Option<&Template<'static>>
     where
-    	for <'a> Cow<'a, str>: std::borrow::Borrow<S>,
-    	S: std::hash::Hash + Eq + ?Sized {
-        self.0.get(name)
+        for<'a> Cow<'a, str>: std::borrow::Borrow<S>,
+        S: std::hash::Hash + Eq + ?Sized,
+    {
+        self.partials.get(name)
     }
 }
 
@@ -270,6 +274,44 @@ impl<'tpl> Block<'tpl> {
             hash,
             tag,
         }
+    }
+}
+
+pub(crate) trait Partials<'tpl> {
+    fn get_partial(&mut self, name: &'tpl str) -> Result<&Template<'tpl>, Error>;
+    fn into_sources(self) -> Vec<Cow<'tpl, str>>;
+}
+
+struct NoPartials;
+
+impl<'tpl> Partials<'tpl> for NoPartials {
+    fn get_partial(&mut self, _name: &'tpl str) -> Result<&Template<'tpl>, Error> {
+        Err(Error::PartialsDisabled)
+    }
+
+    fn into_sources(self) -> Vec<Cow<'tpl, str>> {
+        Vec::with_capacity(0)
+    }
+}
+
+impl Partials<'static> for Templates {
+    fn get_partial(&mut self, name: &'static str) -> Result<&Template<'static>, Error> {
+        let path = self.dir.join(name).canonicalize()?;
+        if !path.starts_with(&self.dir) {
+            return Err(Error::IllegalPartial(name.into()));
+        }
+        if !self.partials.contains_key(name) {
+            let template = Template::load(std::fs::read_to_string(&path)?, self)?;
+            self.partials.insert(name.into(), template);
+        };
+        Ok(&self.partials[name])
+    }
+
+    fn into_sources(self) -> Vec<Cow<'static, str>> {
+        self.partials
+            .into_iter()
+            .map(|(_, tpl)| tpl.source)
+            .collect()
     }
 }
 

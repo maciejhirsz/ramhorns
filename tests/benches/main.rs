@@ -101,7 +101,7 @@ fn e_simple_handlebars(b: &mut Bencher) {
 fn pa_partials_ramhorns(b: &mut Bencher) {
     use ramhorns::Template;
 
-    let tpl = Template::from_file("templates/basic.rh").unwrap();
+    let tpl = Template::from_file("templates/basic.html").unwrap();
     let post = Post {
         title: "Hello, Ramhorns!",
         body: "This is a really simple test of the rendering!",
@@ -117,7 +117,7 @@ fn pb_partials_wearte(b: &mut Bencher) {
     use wearte::Template;
 
     #[derive(Serialize, Template)]
-    #[template(path = "wearte.html")]
+    #[template(path = "basic.html")]
     struct Post<'a> {
         title: &'a str,
         body: &'a str,
@@ -176,9 +176,9 @@ fn pe_partials_handlebars(b: &mut Bencher) {
 
     let mut handlebars = Handlebars::new();
 
-    handlebars.register_template_file("t1", "templates/basic.rh").unwrap();
-    handlebars.register_template_file("head.rh", "templates/head.rh").unwrap();
-    handlebars.register_template_file("footer.rh", "templates/footer.rh").unwrap();
+    handlebars.register_template_file("t1", "templates/basic.html").unwrap();
+    handlebars.register_template_file("head.rh", "templates/head.html").unwrap();
+    handlebars.register_template_file("footer.rh", "templates/footer.html").unwrap();
 
     let post = Post {
         title: "Hello, Ramhorns!",
