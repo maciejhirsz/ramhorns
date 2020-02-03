@@ -11,13 +11,14 @@ mod parse;
 mod section;
 
 use std::borrow::Cow;
-use std::hash::Hasher;
+use std::collections::HashMap;
 use std::fs::File;
+use std::hash::Hasher;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
+use crate::encoding::EscapingIOEncoder;
 use crate::{Content, Error};
-use crate::encoding::{Encoder, EscapingIOEncoder};
 
 use fnv::FnvHasher;
 
@@ -32,11 +33,18 @@ pub struct Template<'tpl> {
     /// Tailing html that isn't part of any `Block`
     capacity_hint: usize,
 
-    /// Tailing html that isn't part of any `Block`
-    tail: &'tpl str,
-
     /// Source from which this template was parsed.
     source: Cow<'tpl, str>,
+
+    /// Partials used in this template
+    partials: Vec<Cow<'tpl, str>>,
+}
+
+/// A safe wrapper around a `HashMap` containing preprocessed templates
+/// of the type `Template`, accesible by their name
+pub struct Templates {
+    partials: HashMap<Cow<'static, str>, Template<'static>>,
+    dir: PathBuf,
 }
 
 impl<'tpl> Template<'tpl> {
@@ -48,11 +56,19 @@ impl<'tpl> Template<'tpl> {
     where
         Source: Into<Cow<'tpl, str>>,
     {
+        Template::load(source, &mut NoPartials)
+    }
+
+    fn load<Source, T>(source: Source, partials: &mut T) -> Result<Self, Error>
+    where
+        Source: Into<Cow<'tpl, str>>,
+        T: Partials<'tpl>,
+    {
         let mut tpl = Template {
             blocks: Vec::new(),
             capacity_hint: 0,
-            tail: "",
             source: source.into(),
+            partials: Vec::with_capacity(0),
         };
 
         // This is allows `Block`s inside this `Template` to be references of the `source` field.
@@ -66,24 +82,27 @@ impl<'tpl> Template<'tpl> {
             str::from_utf8_unchecked(slice::from_raw_parts(ptr, len))
         };
 
-        let mut iter = source.as_bytes()
+        let mut iter = source
+            .as_bytes()
             .get(..tpl.source.len().saturating_sub(1))
             .unwrap_or(&[])
             .iter()
             .map(|b| unsafe { &*(b as *const u8 as *const [u8; 2]) }) // Because we iterate up till last byte,
-            .enumerate();                                             // this is safe.
+            .enumerate(); // this is safe.
 
         let mut last = 0;
 
-        tpl.parse(source, &mut iter, &mut last, None)?;
-        tpl.tail = &source[last..];
+        tpl.parse(source, &mut iter, &mut last, None, partials)?;
+        let tail = &source[last..].trim_end();
+        tpl.blocks.push(Block::new(tail, "", Tag::Tail));
+        tpl.capacity_hint += tail.len();
 
         Ok(tpl)
     }
 
     /// Estimate how big of a buffer should be allocated to render this `Template`.
     pub fn capacity_hint(&self) -> usize {
-        self.capacity_hint + self.tail.len()
+        self.capacity_hint
     }
 
     /// Render this `Template` with a given `Content` to a `String`.
@@ -98,7 +117,6 @@ impl<'tpl> Template<'tpl> {
         // Ignore the result, cannot fail
         let _ = Section::new(&self.blocks).render_once(content, &mut buf);
 
-        buf.push_str(self.tail);
         buf
     }
 
@@ -109,10 +127,7 @@ impl<'tpl> Template<'tpl> {
         C: Content,
     {
         let mut encoder = EscapingIOEncoder::new(writer);
-
-        Section::new(&self.blocks).render_once(content, &mut encoder)?;
-
-        encoder.write_unescaped(self.tail)
+        Section::new(&self.blocks).render_once(content, &mut encoder)
     }
 
     /// Render this `Template` with a given `Content` to a file.
@@ -126,9 +141,7 @@ impl<'tpl> Template<'tpl> {
         let writer = BufWriter::new(File::create(path)?);
         let mut encoder = EscapingIOEncoder::new(writer);
 
-        Section::new(&self.blocks).render_once(content, &mut encoder)?;
-
-        encoder.write_unescaped(self.tail)
+        Section::new(&self.blocks).render_once(content, &mut encoder)
     }
 
     /// Get a reference to a source this `Template` was created from.
@@ -145,19 +158,72 @@ impl Template<'static> {
     /// let tpl = Template::from_file("./templates/my_template.html").unwrap();
     /// ```
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
-        use io::Read;
-
-        let mut file = File::open(path)?;
-        let len = file.metadata()?.len();
-
-        let mut buf = String::with_capacity(len as usize);
-
-        file.read_to_string(&mut buf)?;
-
-        Template::new(buf)
+        let mut partials = Templates::new(
+            path.as_ref()
+                .parent()
+                .unwrap_or_else(|| ".".as_ref())
+                .canonicalize()?,
+        );
+        Template::load(std::fs::read_to_string(&path)?, &mut partials).map(move |mut tpl| {
+            tpl.partials = partials.into_sources();
+            tpl
+        })
     }
 }
 
+impl Templates {
+    fn new(dir: PathBuf) -> Self {
+        Templates {
+            partials: HashMap::new(),
+            dir,
+        }
+    }
+
+    /// Loads all the `.html` files as templates from the given folder into a hashmap, making them
+    /// accessible via their path, joining partials as required
+    /// ```no_run
+    /// # use ramhorns::Templates;
+    /// let tpls = Templates::from_folder("./templates").unwrap();
+    /// let content = "I am the content";
+    /// let rendered = tpls.get("hello.html").unwrap().render(&content);
+    /// ```
+    pub fn from_folder<P: AsRef<Path>>(dir: P) -> Result<Self, Error> {
+        let mut templates = Templates::new(dir.as_ref().canonicalize()?);
+
+        fn load_folder(path: &Path, templates: &mut Templates) -> Result<(), Error> {
+            for entry in std::fs::read_dir(path)? {
+                let path = entry?.path();
+                if path.is_dir() {
+                    load_folder(&path, templates)?;
+                } else if path.extension().unwrap_or("".as_ref()) == "html" {
+                    let name = path
+                        .strip_prefix(&templates.dir)
+                        .unwrap_or(&path)
+                        .to_string_lossy();
+                    if !templates.partials.contains_key(&name) {
+                        let template = Template::load(std::fs::read_to_string(&path)?, templates)?;
+                        templates
+                            .partials
+                            .insert(name.into_owned().into(), template);
+                    }
+                }
+            }
+            Ok(())
+        }
+        load_folder(&templates.dir.clone(), &mut templates)?;
+
+        Ok(templates)
+    }
+
+    /// Get the template with the given name, if it exists
+    pub fn get<S>(&self, name: &S) -> Option<&Template<'static>>
+    where
+        for<'a> Cow<'a, str>: std::borrow::Borrow<S>,
+        S: std::hash::Hash + Eq + ?Sized,
+    {
+        self.partials.get(name)
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tag {
@@ -176,11 +242,17 @@ pub enum Tag {
     /// `{{/closing}}` section tag
     Closing,
 
-    /// {{!comment}}` tag
+    /// `{{!comment}}` tag
     Comment,
+
+    /// `{{>partial}}` tag
+    Partial,
+
+    /// Tailing html
+    Tail,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Block<'tpl> {
     html: &'tpl str,
     name: &'tpl str,
@@ -205,6 +277,44 @@ impl<'tpl> Block<'tpl> {
     }
 }
 
+pub(crate) trait Partials<'tpl> {
+    fn get_partial(&mut self, name: &'tpl str) -> Result<&Template<'tpl>, Error>;
+    fn into_sources(self) -> Vec<Cow<'tpl, str>>;
+}
+
+struct NoPartials;
+
+impl<'tpl> Partials<'tpl> for NoPartials {
+    fn get_partial(&mut self, _name: &'tpl str) -> Result<&Template<'tpl>, Error> {
+        Err(Error::PartialsDisabled)
+    }
+
+    fn into_sources(self) -> Vec<Cow<'tpl, str>> {
+        Vec::with_capacity(0)
+    }
+}
+
+impl Partials<'static> for Templates {
+    fn get_partial(&mut self, name: &'static str) -> Result<&Template<'static>, Error> {
+        let path = self.dir.join(name).canonicalize()?;
+        if !path.starts_with(&self.dir) {
+            return Err(Error::IllegalPartial(name.into()));
+        }
+        if !self.partials.contains_key(name) {
+            let template = Template::load(std::fs::read_to_string(&path)?, self)?;
+            self.partials.insert(name.into(), template);
+        };
+        Ok(&self.partials[name])
+    }
+
+    fn into_sources(self) -> Vec<Cow<'static, str>> {
+        self.partials
+            .into_iter()
+            .map(|(_, tpl)| tpl.source)
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -218,12 +328,15 @@ mod test {
 
     #[test]
     fn block_hashes_correctly() {
-        assert_eq!(Block::new("", "test", Tag::Escaped), Block {
-            html: "",
-            name: "test",
-            hash: 0xf9e6e6ef197c2b25,
-            tag: Tag::Escaped,
-        });
+        assert_eq!(
+            Block::new("", "test", Tag::Escaped),
+            Block {
+                html: "",
+                name: "test",
+                hash: 0xf9e6e6ef197c2b25,
+                tag: Tag::Escaped,
+            }
+        );
     }
 
     #[test]
@@ -231,13 +344,15 @@ mod test {
         let source = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{{body}}}</div>";
         let tpl = Template::new(source).unwrap();
 
-        assert_eq!(&tpl.blocks, &[
-            Block::new("<title>", "title", Tag::Escaped),
-            Block::new("</title><h1>", "title", Tag::Escaped),
-            Block::new("</h1><div>", "body", Tag::Unescaped),
-        ]);
-
-        assert_eq!(tpl.tail, "</div>");
+        assert_eq!(
+            &tpl.blocks,
+            &[
+                Block::new("<title>", "title", Tag::Escaped),
+                Block::new("</title><h1>", "title", Tag::Escaped),
+                Block::new("</h1><div>", "body", Tag::Unescaped),
+                Block::new("</div>", "", Tag::Tail),
+            ]
+        );
     }
 
     #[test]
@@ -245,15 +360,17 @@ mod test {
         let source = "<body><h1>{{ title }}</h1>{{#posts}}<article>{{name}}</article>{{/posts}}{{^posts}}<p>Nothing here :(</p>{{/posts}}</body>";
         let tpl = Template::new(source).unwrap();
 
-        assert_eq!(&tpl.blocks, &[
-            Block::new("<body><h1>", "title", Tag::Escaped),
-            Block::new("</h1>", "posts", Tag::Section(2)),
-            Block::new("<article>", "name", Tag::Escaped),
-            Block::new("</article>", "posts", Tag::Closing),
-            Block::new("", "posts", Tag::Inverse(1)),
-            Block::new("<p>Nothing here :(</p>", "posts", Tag::Closing),
-        ]);
-
-        assert_eq!(tpl.tail, "</body>");
+        assert_eq!(
+            &tpl.blocks,
+            &[
+                Block::new("<body><h1>", "title", Tag::Escaped),
+                Block::new("</h1>", "posts", Tag::Section(2)),
+                Block::new("<article>", "name", Tag::Escaped),
+                Block::new("</article>", "posts", Tag::Closing),
+                Block::new("", "posts", Tag::Inverse(1)),
+                Block::new("<p>Nothing here :(</p>", "posts", Tag::Closing),
+                Block::new("</body>", "", Tag::Tail),
+            ]
+        );
     }
 }

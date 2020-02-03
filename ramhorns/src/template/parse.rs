@@ -7,18 +7,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
-use super::{Template, Block, Tag, Error};
+use super::{Block, Error, Tag, Template, Partials};
 
 impl<'tpl> Template<'tpl> {
-    pub(crate) fn parse<Iter>(
+    pub(crate) fn parse(
         &mut self,
         source: &'tpl str,
-        iter: &mut Iter,
+        iter: &mut impl Iterator<Item = (usize, &'tpl [u8; 2])>,
         last: &mut usize,
         until: Option<&'tpl str>,
+        partials: &mut impl Partials<'tpl>,
     ) -> Result<usize, Error>
-    where
-        Iter: Iterator<Item = (usize, &'tpl [u8; 2])>,
     {
         let blocks_at_start = self.blocks.len();
 
@@ -36,12 +35,13 @@ impl<'tpl> Template<'tpl> {
                         b'{' => {
                             tag = Tag::Unescaped;
                             end_skip = 3;
-                        },
+                        }
                         b'#' => tag = Tag::Section(0),
                         b'^' => tag = Tag::Inverse(0),
                         b'/' => tag = Tag::Closing,
                         b'!' => tag = Tag::Comment,
                         b'&' => tag = Tag::Unescaped,
+                        b'>' => tag = Tag::Partial,
                         b' ' | b'\t' | b'\r' | b'\n' => {
                             start_skip += 1;
                             continue;
@@ -61,7 +61,7 @@ impl<'tpl> Template<'tpl> {
                         // Skip the braces
                         if end_skip == 3 {
                             match iter.next() {
-                                Some((_, b"}}")) => {},
+                                Some((_, b"}}")) => {}
                                 _ => return Err(Error::UnclosedTag),
                             }
                         }
@@ -75,19 +75,19 @@ impl<'tpl> Template<'tpl> {
                         let insert_index = self.blocks.len();
 
                         self.capacity_hint += html.len();
-                        self.blocks.insert(insert_index, Block::new(html, name, tag));
+                        self.blocks
+                            .insert(insert_index, Block::new(html, name, tag));
 
                         match tag {
-                            Tag::Section(_) |
-                            Tag::Inverse(_) => {
-                                let count = self.parse(source, iter, last, Some(name))?;
+                            Tag::Section(_) | Tag::Inverse(_) => {
+                                let count =
+                                    self.parse(source, iter, last, Some(name), partials)?;
 
                                 match self.blocks[insert_index].tag {
-                                    Tag::Section(ref mut c) |
-                                    Tag::Inverse(ref mut c) => *c = count,
-                                    _ => {},
+                                    Tag::Section(ref mut c) | Tag::Inverse(ref mut c) => *c = count,
+                                    _ => {}
                                 }
-                            },
+                            }
                             Tag::Closing => {
                                 if let Some(until) = until {
                                     if until != name {
@@ -96,8 +96,13 @@ impl<'tpl> Template<'tpl> {
                                 }
 
                                 return Ok(self.blocks.len() - blocks_at_start);
-                            },
-                            _ => {},
+                            }
+                            Tag::Partial => {
+                                let partial = partials.get_partial(name)?;
+                                self.blocks.extend(&partial.blocks);
+                                self.capacity_hint += partial.capacity_hint;
+                            }
+                            _ => {}
                         };
 
                         break;
