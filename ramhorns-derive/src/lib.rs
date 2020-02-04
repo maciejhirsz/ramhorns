@@ -90,7 +90,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
         let method = method.as_ref().unwrap_or(&render_escaped);
 
         quote! {
-            #hash => self.#field.#method(encoder),
+            #hash => self.#field.#method(encoder).map(|_| true),
         }
     });
 
@@ -99,19 +99,19 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
         let method = method.as_ref().unwrap_or(&render_unescaped);
 
         quote! {
-            #hash => self.#field.#method(encoder),
+            #hash => self.#field.#method(encoder).map(|_| true),
         }
     });
 
     let render_field_section = fields.iter().map(|(_, field, hash, _)| {
         quote! {
-            #hash => self.#field.render_section(section, encoder),
+            #hash => self.#field.render_section(section, encoder).map(|_| true),
         }
     });
 
     let render_field_inverse = fields.iter().map(|(_, field, hash, _)| {
         quote! {
-            #hash => self.#field.render_inverse(section, encoder),
+            #hash => self.#field.render_inverse(section, encoder).map(|_| true),
         }
     });
 
@@ -123,44 +123,54 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
             fn capacity_hint(&self, tpl: &ramhorns::Template) -> usize {
                 tpl.capacity_hint() #( + self.#fields.capacity_hint(tpl) )*
             }
+            
+            fn render_section<'section, 'content, E>(&'content self, mut section: ramhorns::Section<'section, 'content, E>, encoder: &mut E) -> Result<(), E::Error>
+            where
+        	'content: 'section,
+                E: ramhorns::encoding::Encoder,
+            {
+                section.render_once(self, encoder)
+            }
 
-            fn render_field_escaped<E>(&self, hash: u64, _: &str, encoder: &mut E) -> Result<(), E::Error>
+            fn render_field_escaped<E>(&self, hash: u64, _: &str, encoder: &mut E) -> Result<bool, E::Error>
             where
                 E: ramhorns::encoding::Encoder,
             {
                 match hash {
                     #( #render_field_escaped )*
-                    _ => Ok(())
+                    _ => Ok(false)
                 }
             }
 
-            fn render_field_unescaped<E>(&self, hash: u64, _: &str, encoder: &mut E) -> Result<(), E::Error>
+            fn render_field_unescaped<E>(&self, hash: u64, _: &str, encoder: &mut E) -> Result<bool, E::Error>
             where
                 E: ramhorns::encoding::Encoder,
             {
                 match hash {
                     #( #render_field_unescaped )*
-                    _ => Ok(())
+                    _ => Ok(false)
                 }
             }
 
-            fn render_field_section<'section, E>(&self, hash: u64, _: &str, section: ramhorns::Section<'section>, encoder: &mut E) -> Result<(), E::Error>
+            fn render_field_section<'section, 'content, E>(&'content self, hash: u64, _: &str, section: ramhorns::Section<'section, 'content, E>, encoder: &mut E) -> Result<bool, E::Error>
             where
+        	'content: 'section,
                 E: ramhorns::encoding::Encoder,
             {
                 match hash {
                     #( #render_field_section )*
-                    _ => Ok(())
+                    _ => Ok(false)
                 }
             }
 
-            fn render_field_inverse<'section, E>(&self, hash: u64, _: &str, section: ramhorns::Section<'section>, encoder: &mut E) -> Result<(), E::Error>
+            fn render_field_inverse<'section, 'content, E>(&'content self, hash: u64, _: &str, section: ramhorns::Section<'section, 'content, E>, encoder: &mut E) -> Result<bool, E::Error>
             where
+            	'content: 'section,
                 E: ramhorns::encoding::Encoder,
             {
                 match hash {
                     #( #render_field_inverse )*
-                    _ => Ok(())
+                    _ => Ok(false)
                 }
             }
         }
@@ -168,5 +178,5 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
 
     // panic!("{}", tokens);
 
-    TokenStream::from(tokens).into()
+    TokenStream::from(tokens)
 }

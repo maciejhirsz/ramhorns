@@ -7,17 +7,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
-use crate::{Template, Section};
 use crate::encoding::Encoder;
+use crate::{Section, Template};
 
 use std::borrow::Borrow;
-use std::collections::{HashMap, BTreeMap};
-use std::hash::Hash;
+use std::collections::{BTreeMap, HashMap};
+use std::hash::{BuildHasher, Hash};
 
 /// Trait allowing the rendering to quickly access data stored in the type that
 /// implements it. You needn't worry about implementing it, in virtually all
 /// cases the `#[derive(Content)]` attribute above your types should be sufficient.
-pub trait Content: Sized {
+pub trait Content {
     /// Marks whether this content is truthy. Used when attempting to render a section.
     fn is_truthy(&self) -> bool {
         true
@@ -32,52 +32,45 @@ pub trait Content: Sized {
     /// Renders self as a variable to the encoder.
     ///
     /// This will escape HTML characters, eg: `<` will become `&lt;`.
-    fn render_escaped<'section, E>(&self, _encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
+    fn render_escaped<E: Encoder>(&self, _encoder: &mut E) -> Result<(), E::Error> {
         Ok(())
     }
 
     /// Renders self as a variable to the encoder.
     ///
     /// This doesn't perform any escaping at all.
-    fn render_unescaped<'section, E>(&self, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
+    fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         self.render_escaped(encoder)
     }
 
     /// Renders self as a variable to the encoder with CommonMark processing.
     ///
     /// The generated HTML is never escaped.
-    fn render_cmark<'section, E>(&self, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
+    fn render_cmark<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         self.render_escaped(encoder)
     }
 
     /// Render a section with self.
-    fn render_section<'section, E>(&self, section: Section<'section>, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
+    fn render_section<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        mut section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<(), E::Error> {
         if self.is_truthy() {
-            section.render_once(self, encoder)
+            section.render_once(&(), encoder)
         } else {
             Ok(())
         }
     }
 
     /// Render a section with self.
-    fn render_inverse<'section, E>(&self, section: Section<'section>, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
+    fn render_inverse<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        mut section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<(), E::Error> {
         if !self.is_truthy() {
-            section.render_once(self, encoder)
+            section.render_once(&(), encoder)
         } else {
             Ok(())
         }
@@ -86,98 +79,96 @@ pub trait Content: Sized {
     /// Render a field by the hash **or** string of its name.
     ///
     /// This will escape HTML characters, eg: `<` will become `&lt;`.
-    fn render_field_escaped<E>(&self, _hash: u64, _name: &str, _encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
-        Ok(())
+    /// If successful, returns `true` if the field exists in this content, otherwise `false`.
+    fn render_field_escaped<E: Encoder>(
+        &self,
+        _hash: u64,
+        _name: &str,
+        _encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        Ok(false)
     }
 
     /// Render a field by the hash **or** string of its name.
     ///
     /// This doesn't perform any escaping at all.
-    fn render_field_unescaped<E>(&self, _hash: u64, _name: &str, _encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
-        Ok(())
+    /// If successful, returns `true` if the field exists in this content, otherwise `false`.
+    fn render_field_unescaped<E: Encoder>(
+        &self,
+        _hash: u64,
+        _name: &str,
+        _encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        Ok(false)
     }
 
     /// Render a field by the hash **or** string of its name, as a section.
-    fn render_field_section<'section, E>(&self, _hash: u64, _name: &str, _section: Section<'section>, _encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
-        Ok(())
+    /// If successful, returns `true` if the field exists in this content, otherwise `false`.
+    fn render_field_section<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        _hash: u64,
+        _name: &str,
+        mut _section: Section<'section, 'content, E>,
+        _encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        Ok(false)
     }
 
     /// Render a field, by the hash of **or** string its name, as an inverse section.
-    fn render_field_inverse<'section, E>(&self, _hash: u64, _name: &str, _section: Section<'section>, _encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
-        Ok(())
+    /// If successful, returns `true` if the field exists in this content, otherwise `false`.
+    fn render_field_inverse<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        _hash: u64,
+        _name: &str,
+        mut _section: Section<'section, 'content, E>,
+        _encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        Ok(false)
     }
 }
 
-impl Content for &str {
+impl Content for () {}
+
+impl Content for str {
     fn is_truthy(&self) -> bool {
-        self.len() != 0
+        !self.is_empty()
     }
 
     fn capacity_hint(&self, _tpl: &Template) -> usize {
         self.len()
     }
 
-    fn render_escaped<'section, E>(&self, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
-        encoder.write_escaped(*self)
+    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
+        encoder.write_escaped(self)
     }
 
-    fn render_unescaped<'section, E>(&self, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
-        encoder.write_unescaped(*self)
+    fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
+        encoder.write_unescaped(self)
     }
 
-    fn render_cmark<'section, E>(&self, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
-        crate::cmark::encode(*self, encoder)
+    fn render_cmark<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
+        crate::cmark::encode(self, encoder)
     }
 }
 
 impl Content for String {
     fn is_truthy(&self) -> bool {
-        self.len() != 0
+        !self.is_empty()
     }
 
     fn capacity_hint(&self, _tpl: &Template) -> usize {
         self.len()
     }
 
-    fn render_escaped<'section, E>(&self, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
+    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         encoder.write_escaped(self)
     }
 
-    fn render_unescaped<'section, E>(&self, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
+    fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         encoder.write_unescaped(self)
     }
 
-    fn render_cmark<'section, E>(&self, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
+    fn render_cmark<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         crate::cmark::encode(self, encoder)
     }
 }
@@ -191,15 +182,9 @@ impl Content for bool {
         5
     }
 
-    fn render_escaped<'section, E>(&self, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
+    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         // Nothing to escape here
-        encoder.write_unescaped(match *self {
-            true => "true",
-            false => "false",
-        })
+        encoder.write_unescaped(if *self { "true" } else { "false" })
     }
 }
 
@@ -215,9 +200,7 @@ macro_rules! impl_number_types {
                     5
                 }
 
-                fn render_escaped<'section, E>(&self, encoder: &mut E) -> Result<(), E::Error>
-                where
-                    E: Encoder,
+                fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error>
                 {
                     // Nothing to escape here
                     encoder.format_unescaped(self)
@@ -227,7 +210,39 @@ macro_rules! impl_number_types {
     }
 }
 
-impl_number_types!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64);
+impl_number_types!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
+
+impl Content for f32 {
+    fn is_truthy(&self) -> bool {
+        // Floats shoudn't be directly compared to 0
+        self.abs() > std::f32::EPSILON
+    }
+
+    fn capacity_hint(&self, _tpl: &Template) -> usize {
+        5
+    }
+
+    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
+        // Nothing to escape here
+        encoder.format_unescaped(self)
+    }
+}
+
+impl Content for f64 {
+    fn is_truthy(&self) -> bool {
+        // Floats shoudn't be directly compared to 0
+        self.abs() > std::f64::EPSILON
+    }
+
+    fn capacity_hint(&self, _tpl: &Template) -> usize {
+        5
+    }
+
+    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
+        // Nothing to escape here
+        encoder.format_unescaped(self)
+    }
+}
 
 impl<T: Content> Content for Option<T> {
     fn is_truthy(&self) -> bool {
@@ -237,14 +252,11 @@ impl<T: Content> Content for Option<T> {
     fn capacity_hint(&self, tpl: &Template) -> usize {
         match self {
             Some(inner) => inner.capacity_hint(tpl),
-            _ => 0
+            _ => 0,
         }
     }
 
-    fn render_escaped<'section, E>(&self, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
+    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         if let Some(inner) = self {
             inner.render_escaped(encoder)?;
         }
@@ -252,10 +264,7 @@ impl<T: Content> Content for Option<T> {
         Ok(())
     }
 
-    fn render_unescaped<'section, E>(&self, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
+    fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         if let Some(ref inner) = self {
             inner.render_unescaped(encoder)?;
         }
@@ -263,10 +272,11 @@ impl<T: Content> Content for Option<T> {
         Ok(())
     }
 
-    fn render_section<'section, E>(&self, section: Section<'section>, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
+    fn render_section<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        mut section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<(), E::Error> {
         if let Some(item) = self {
             section.render_once(item, encoder)?;
         }
@@ -283,14 +293,11 @@ impl<T: Content, U> Content for Result<T, U> {
     fn capacity_hint(&self, tpl: &Template) -> usize {
         match self {
             Ok(inner) => inner.capacity_hint(tpl),
-            _ => 0
+            _ => 0,
         }
     }
 
-    fn render_escaped<'section, E>(&self, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
+    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         if let Ok(inner) = self {
             inner.render_escaped(encoder)?;
         }
@@ -298,10 +305,7 @@ impl<T: Content, U> Content for Result<T, U> {
         Ok(())
     }
 
-    fn render_unescaped<'section, E>(&self, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
+    fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         if let Ok(ref inner) = self {
             inner.render_unescaped(encoder)?;
         }
@@ -309,10 +313,11 @@ impl<T: Content, U> Content for Result<T, U> {
         Ok(())
     }
 
-    fn render_section<'section, E>(&self, section: Section<'section>, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
+    fn render_section<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        mut section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<(), E::Error> {
         if let Ok(item) = self {
             section.render_once(item, encoder)?;
         }
@@ -323,13 +328,14 @@ impl<T: Content, U> Content for Result<T, U> {
 
 impl<T: Content> Content for Vec<T> {
     fn is_truthy(&self) -> bool {
-        self.len() != 0
+        !self.is_empty()
     }
 
-    fn render_section<'section, E>(&self, section: Section<'section>, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
+    fn render_section<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        mut section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<(), E::Error> {
         for item in self.iter() {
             section.render_once(item, encoder)?;
         }
@@ -338,15 +344,16 @@ impl<T: Content> Content for Vec<T> {
     }
 }
 
-impl<T: Content> Content for &[T] {
+impl<T: Content> Content for [T] {
     fn is_truthy(&self) -> bool {
-        self.len() != 0
+        !self.is_empty()
     }
 
-    fn render_section<'section, E>(&self, section: Section<'section>, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
+    fn render_section<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        mut section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<(), E::Error> {
         for item in self.iter() {
             section.render_once(item, encoder)?;
         }
@@ -355,52 +362,88 @@ impl<T: Content> Content for &[T] {
     }
 }
 
-impl<K, V> Content for HashMap<K, V>
+impl<K, V, S> Content for HashMap<K, V, S>
 where
     K: Borrow<str> + Hash + Eq,
     V: Content,
+    S: BuildHasher,
 {
     fn is_truthy(&self) -> bool {
         !self.is_empty()
     }
 
-    fn render_field_escaped<E>(&self, _: u64, name: &str, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
-        match self.get(name) {
-            Some(v) => v.render_escaped(encoder),
-            None => Ok(())
+    fn render_section<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        mut section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<(), E::Error> {
+        if self.is_truthy() {
+            section.render_once(self, encoder)
+        } else {
+            Ok(())
         }
     }
 
-    fn render_field_unescaped<E>(&self, _: u64, name: &str, encoder: &mut E) -> Result<(), E::Error>
+    fn render_inverse<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        mut section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<(), E::Error> {
+        if !self.is_truthy() {
+            section.render_once(self, encoder)
+        } else {
+            Ok(())
+        }
+    }
+    
+    fn render_field_escaped<E>(&self, _: u64, name: &str, encoder: &mut E) -> Result<bool, E::Error>
     where
         E: Encoder,
     {
         match self.get(name) {
-            Some(v) => v.render_unescaped(encoder),
-            None => Ok(())
+            Some(v) => v.render_escaped(encoder).map(|_| true),
+            None => Ok(false),
         }
     }
 
-    fn render_field_section<'section, E>(&self, _: u64, name: &str, section: Section<'section>, encoder: &mut E) -> Result<(), E::Error>
+    fn render_field_unescaped<E>(
+        &self,
+        _: u64,
+        name: &str,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error>
     where
         E: Encoder,
     {
         match self.get(name) {
-            Some(v) => v.render_section(section, encoder),
-            None => Ok(())
+            Some(v) => v.render_unescaped(encoder).map(|_| true),
+            None => Ok(false),
         }
     }
 
-    fn render_field_inverse<'section, E>(&self, _: u64, name: &str, section: Section<'section>, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
+    fn render_field_section<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        _: u64,
+        name: &str,
+        section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
         match self.get(name) {
-            Some(v) => v.render_inverse(section, encoder),
-            None => Ok(())
+            Some(v) => v.render_section(section, encoder).map(|_| true),
+            None => Ok(false),
+        }
+    }
+
+    fn render_field_inverse<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        _: u64,
+        name: &str,
+        section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        match self.get(name) {
+            Some(v) => v.render_inverse(section, encoder).map(|_| true),
+            None => Ok(false),
         }
     }
 }
@@ -414,43 +457,204 @@ where
         !self.is_empty()
     }
 
-    fn render_field_escaped<E>(&self, _: u64, name: &str, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
-        match self.get(name) {
-            Some(v) => v.render_escaped(encoder),
-            None => Ok(())
+    fn render_section<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        mut section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<(), E::Error> {
+        if self.is_truthy() {
+            section.render_once(self, encoder)
+        } else {
+            Ok(())
         }
     }
 
-    fn render_field_unescaped<E>(&self, _: u64, name: &str, encoder: &mut E) -> Result<(), E::Error>
-    where
-        E: Encoder,
-    {
-        match self.get(name) {
-            Some(v) => v.render_unescaped(encoder),
-            None => Ok(())
+    fn render_inverse<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        mut section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<(), E::Error> {
+        if !self.is_truthy() {
+            section.render_once(self, encoder)
+        } else {
+            Ok(())
         }
     }
 
-    fn render_field_section<'section, E>(&self, _: u64, name: &str, section: Section<'section>, encoder: &mut E) -> Result<(), E::Error>
+    fn render_field_escaped<E>(&self, _: u64, name: &str, encoder: &mut E) -> Result<bool, E::Error>
     where
         E: Encoder,
     {
         match self.get(name) {
-            Some(v) => v.render_section(section, encoder),
-            None => Ok(())
+            Some(v) => v.render_escaped(encoder).map(|_| true),
+            None => Ok(false),
         }
     }
 
-    fn render_field_inverse<'section, E>(&self, _: u64, name: &str, section: Section<'section>, encoder: &mut E) -> Result<(), E::Error>
+    fn render_field_unescaped<E>(
+        &self,
+        _: u64,
+        name: &str,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error>
     where
         E: Encoder,
     {
         match self.get(name) {
-            Some(v) => v.render_inverse(section, encoder),
-            None => Ok(())
+            Some(v) => v.render_unescaped(encoder).map(|_| true),
+            None => Ok(false),
         }
+    }
+
+    fn render_field_section<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        _: u64,
+        name: &str,
+        section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        match self.get(name) {
+            Some(v) => v.render_section(section, encoder).map(|_| true),
+            None => Ok(false),
+        }
+    }
+
+    fn render_field_inverse<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        _: u64,
+        name: &str,
+        section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        match self.get(name) {
+            Some(v) => v.render_inverse(section, encoder).map(|_| true),
+            None => Ok(false),
+        }
+    }
+}
+
+impl<T: Content + ?Sized> Content for &'_ T {
+    fn is_truthy(&self) -> bool {
+        (*self).is_truthy()
+    }
+
+    fn capacity_hint(&self, tpl: &Template) -> usize {
+        (*self).capacity_hint(tpl)
+    }
+
+    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
+        (*self).render_escaped(encoder)
+    }
+
+    fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
+        (*self).render_unescaped(encoder)
+    }
+
+    fn render_section<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<(), E::Error> {
+        (*self).render_section(section, encoder)
+    }
+
+    fn render_inverse<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<(), E::Error> {
+        (*self).render_inverse(section, encoder)
+    }
+
+    fn render_field_escaped<E: Encoder>(
+        &self,
+        hash: u64,
+        name: &str,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        (*self).render_field_escaped(hash, name, encoder)
+    }
+
+    fn render_field_unescaped<E: Encoder>(
+        &self,
+        hash: u64,
+        name: &str,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        (*self).render_field_unescaped(hash, name, encoder)
+    }
+
+    fn render_field_section<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        hash: u64,
+        name: &str,
+        section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        (*self).render_field_section(hash, name, section, encoder)
+    }
+
+    fn render_field_inverse<'section, 'content: 'section, E: Encoder>(
+        &'content self,
+        hash: u64,
+        name: &str,
+        section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        (*self).render_field_inverse(hash, name, section, encoder)
+    }
+}
+
+/// A helper trait allowing to turnt Content into a trait object
+/// (with a particular Encoder)
+pub(crate) trait EncContent<E: Encoder> {
+    fn render_field_escaped(&self, hash: u64, name: &str, enc: &mut E) -> Result<bool, E::Error>;
+
+    fn render_field_unescaped(&self, hash: u64, name: &str, enc: &mut E) -> Result<bool, E::Error>;
+
+    fn render_field_section<'section, 'content: 'section>(
+        &'content self,
+        hash: u64,
+        name: &str,
+        section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error>;
+
+    fn render_field_inverse<'section, 'content: 'section>(
+        &'content self,
+        hash: u64,
+        name: &str,
+        section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error>;
+}
+
+impl<T: Content, E: Encoder> EncContent<E> for T {
+    fn render_field_escaped(&self, hash: u64, name: &str, enc: &mut E) -> Result<bool, E::Error> {
+        <Self as Content>::render_field_escaped(self, hash, name, enc)
+    }
+
+    fn render_field_unescaped(&self, hash: u64, name: &str, enc: &mut E) -> Result<bool, E::Error> {
+        <Self as Content>::render_field_unescaped(self, hash, name, enc)
+    }
+
+    fn render_field_section<'section, 'content: 'section>(
+        &'content self,
+        hash: u64,
+        name: &str,
+        section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        <Self as Content>::render_field_section(self, hash, name, section, encoder)
+    }
+
+    fn render_field_inverse<'section, 'content: 'section>(
+        &'content self,
+        hash: u64,
+        name: &str,
+        section: Section<'section, 'content, E>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        <Self as Content>::render_field_inverse(self, hash, name, section, encoder)
     }
 }

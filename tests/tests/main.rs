@@ -402,6 +402,55 @@ fn can_render_markdown() {
 }
 
 #[test]
+fn can_reference_parent_content() {
+    #[derive(Content)]
+    struct Grandpa<'a> {
+        name: &'a str,
+        son: Father<'a>,
+        hobbies: Vec<Hobby<'a>>,
+    }
+
+    #[derive(Content)]
+    struct Father<'a> {
+        title: &'a str,
+        grandson: Man<'a>,
+    }
+
+    #[derive(Content)]
+    struct Man<'a> {
+        favourite_lang: &'a str,
+    }
+
+    #[derive(Content)]
+    struct Hobby<'a> {
+        hobby: &'a str,
+    }
+
+    let tpl = Template::new(
+        "<h1>Grandpa</h1><p>He's got a son.{{#son}} He's got another son.{{#grandson}}
+        His favourite language is {{favourite_lang}}. People call his father {{title}} and his grandfather {{name}}.
+        Grandpa's hobbies are: <ul>{{#hobbies}}<li>{{hobby}}</li>{{/hobbies}}</ul>{{/grandson}}{{/son}}</p>").unwrap();
+
+    let html = tpl.render(&Grandpa {
+        name: "Jan",
+        son: Father {
+            title: "Sir",
+            grandson: Man {
+                favourite_lang: "Rust",
+            },
+        },
+        hobbies: vec![
+            Hobby {
+                hobby: "watching ducks",
+            },
+            Hobby { hobby: "petang" },
+        ],
+    });
+
+    assert_eq!(html, "<h1>Grandpa</h1><p>He\'s got a son. He\'s got another son.\n        His favourite language is Rust. People call his father Sir and his grandfather Jan.\n        Grandpa\'s hobbies are: <ul><li>watching ducks</li><li>petang</li></ul></p>");
+}
+
+#[test]
 fn simple_partials() {
     let tpl = Template::from_file("templates/layout.html").unwrap();
     let html = tpl.render(&"");
