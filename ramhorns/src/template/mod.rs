@@ -84,11 +84,9 @@ impl<'tpl> Template<'tpl> {
 
         let mut iter = source
             .as_bytes()
-            .get(..tpl.source.len().saturating_sub(1))
-            .unwrap_or(&[])
-            .iter()
-            .map(|b| unsafe { &*(b as *const u8 as *const [u8; 2]) }) // Because we iterate up till last byte,
-            .enumerate(); // this is safe.
+            .windows(2)
+            .map(|b| unsafe { &*(b.as_ptr() as *const [u8; 2]) }) // windows iterator makes this safe
+            .enumerate();
 
         let mut last = 0;
 
