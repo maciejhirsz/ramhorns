@@ -7,7 +7,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
-use std::{fmt, io};
+use std::{fmt, io, error};
 
 /// Error type used that can be emitted during template parsing.
 #[derive(Debug)]
@@ -28,6 +28,8 @@ pub enum Error {
     /// Attempted to load a partial outside of the templates folder
     IllegalPartial(Box<str>),
 }
+
+impl error::Error for Error {}
 
 impl From<io::Error> for Error {
     fn from(err: io::Error) -> Self {
