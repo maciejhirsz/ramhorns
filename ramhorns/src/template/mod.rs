@@ -115,7 +115,7 @@ impl<'tpl> Template<'tpl> {
         let mut buf = String::with_capacity(capacity);
 
         // Ignore the result, cannot fail
-        let _ = Section::new(&self.blocks, &mut Vec::with_capacity(5)).render_once(content, &mut buf);
+        let _ = Section::new(&self.blocks).render_once(content, &mut buf);
 
         buf
     }
@@ -127,7 +127,7 @@ impl<'tpl> Template<'tpl> {
         C: Content,
     {
         let mut encoder = EscapingIOEncoder::new(writer);
-        Section::new(&self.blocks, &mut Vec::with_capacity(5)).render_once(content, &mut encoder)
+        Section::new(&self.blocks).render_once(content, &mut encoder)
     }
 
     /// Render this `Template` with a given `Content` to a file.
@@ -141,7 +141,7 @@ impl<'tpl> Template<'tpl> {
         let writer = BufWriter::new(File::create(path)?);
         let mut encoder = EscapingIOEncoder::new(writer);
 
-        Section::new(&self.blocks, &mut Vec::with_capacity(5)).render_once(content, &mut encoder)
+        Section::new(&self.blocks).render_once(content, &mut encoder)
     }
 
     /// Get a reference to a source this `Template` was created from.

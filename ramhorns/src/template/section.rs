@@ -8,33 +8,48 @@
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
 use super::{Block, Tag};
-use crate::content::EncContent;
 use crate::encoding::Encoder;
 use crate::Content;
 
 /// A section of a `Template` that can be rendered individually, usually delimited by
 /// `{{#section}} ... {{/section}}` tags.
-pub struct Section<'section, 'content: 'section, E: Encoder> {
+#[derive(Clone, Copy)]
+pub struct Section<'section, P: Content + Copy + 'section> {
     blocks: &'section [Block<'section>],
-    stack: &'section mut Vec<&'content dyn EncContent<E>>,
+    parents: P,
 }
 
-impl<'section, 'content: 'section, E: Encoder> Section<'section, 'content, E> {
-    pub(crate) fn new(
-        blocks: &'section [Block<'section>],
-        stack: &'section mut Vec<&'content dyn EncContent<E>>,
-    ) -> Self {
-        Self { blocks, stack }
+struct Parents<'content, C: Content + ?Sized, P: Content> {
+    current: &'content C,
+    parent: &'content P,
+}
+
+impl<'section> Section<'section, ()> {
+    pub(crate) fn new(blocks: &'section [Block<'section>]) -> Self {
+        Self {
+            blocks,
+            parents: (),
+        }
+    }
+}
+
+impl<'section, P: Content + Copy + 'section> Section<'section, P> {
+    fn with_parents(blocks: &'section [Block<'section>], parents: P) -> Self {
+        Self { blocks, parents }
     }
 
     /// Render this section once to the provided `Encoder`. Some `Content`s will call
     /// this method multiple times (to render a list of elements).
-    pub fn render_once<C: Content>(
-        &mut self,
-        content: &'content C,
+    pub fn render_once<C: Content + ?Sized, E: Encoder>(
+        &self,
+        content: &C,
         encoder: &mut E,
     ) -> Result<(), E::Error> {
         let mut index = 0;
+        let contents = Parents {
+            current: content,
+            parent: &self.parents,
+        };
 
         while let Some(block) = self.blocks.get(index) {
             index += 1;
@@ -43,71 +58,27 @@ impl<'section, 'content: 'section, E: Encoder> Section<'section, 'content, E> {
 
             match block.tag {
                 Tag::Escaped => {
-                    if !content.render_field_escaped(block.hash, block.name, encoder)? {
-                        for parent in self.stack.iter().rev() {
-                            if parent.render_field_escaped(block.hash, block.name, encoder)? {
-                                break;
-                            }
-                        }
-                    }
+                    contents.render_field_escaped(block.hash, block.name, encoder)?;
                 }
                 Tag::Unescaped => {
-                    if !content.render_field_unescaped(block.hash, block.name, encoder)? {
-                        for parent in self.stack.iter().rev() {
-                            if parent.render_field_unescaped(block.hash, block.name, encoder)? {
-                                break;
-                            }
-                        }
-                    }
+                    contents.render_field_unescaped(block.hash, block.name, encoder)?;
                 }
                 Tag::Section(count) => {
-                    self.stack.push(content);
-                    if !content.render_field_section(
+                    contents.render_field_section(
                         block.hash,
                         block.name,
-                        Section::new(&self.blocks[index..index + count], self.stack),
+                        Section::new(&self.blocks[index..index + count]),
                         encoder,
-                    )? && self.stack.len() > 1
-                    {
-                        // Can't use an iterator since it references stack, which is mutable
-                        for i in (0..self.stack.len() - 1).rev() {
-                            if self.stack[i].render_field_section(
-                                block.hash,
-                                block.name,
-                                Section::new(&self.blocks[index..index + count], self.stack),
-                                encoder,
-                            )? {
-                                break;
-                            };
-                        }
-                    };
-                    self.stack.pop();
-
+                    )?;
                     index += count;
                 }
                 Tag::Inverse(count) => {
-                    self.stack.push(content);
-                    if !content.render_field_inverse(
+                    contents.render_field_inverse(
                         block.hash,
                         block.name,
-                        Section::new(&self.blocks[index..index + count], self.stack),
+                        Section::new(&self.blocks[index..index + count]),
                         encoder,
-                    )? && self.stack.len() > 1
-                    {
-                        // Can't use an iterator since it references stack, which is mutable
-                        for i in (0..self.stack.len() - 1).rev() {
-                            if self.stack[i].render_field_inverse(
-                                block.hash,
-                                block.name,
-                                Section::new(&self.blocks[index..index + count], self.stack),
-                                encoder,
-                            )? {
-                                break;
-                            };
-                        }
-                    };
-                    self.stack.pop();
-
+                    )?;
                     index += count;
                 }
                 _ => {}
@@ -117,3 +88,71 @@ impl<'section, 'content: 'section, E: Encoder> Section<'section, 'content, E> {
         Ok(())
     }
 }
+
+impl<'content, G: Content + ?Sized, H: Content> Content for Parents<'content, G, H> {
+    fn render_field_escaped<E: Encoder>(
+        &self,
+        hash: u64,
+        name: &str,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        Ok(self.current.render_field_escaped(hash, name, encoder)?
+            || self.parent.render_field_escaped(hash, name, encoder)?)
+    }
+
+    fn render_field_unescaped<E: Encoder>(
+        &self,
+        hash: u64,
+        name: &str,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        Ok(self.current.render_field_unescaped(hash, name, encoder)?
+            || self.parent.render_field_unescaped(hash, name, encoder)?)
+    }
+
+    fn render_field_section<'section, P: Content + Copy + 'section, E: Encoder>(
+        &self,
+        hash: u64,
+        name: &str,
+        section: Section<'section, P>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        Ok(self.current.render_field_section(
+            hash,
+            name,
+            Section::with_parents(section.blocks, self),
+            encoder,
+        )? || self
+            .parent
+            .render_field_section(hash, name, section, encoder)?)
+    }
+
+    fn render_field_inverse<'section, P: Content + Copy + 'section, E: Encoder>(
+        &self,
+        hash: u64,
+        name: &str,
+        section: Section<'section, P>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        Ok(self.current.render_field_inverse(
+            hash,
+            name,
+            Section::with_parents(section.blocks, self),
+            encoder,
+        )? || self
+            .parent
+            .render_field_inverse(hash, name, section, encoder)?)
+    }
+}
+
+// These traits need to be implemented manually since C or D may not be Clone
+impl<'content, C: Content + ?Sized, D: Content> Clone for Parents<'content, C, D> {
+    fn clone(&self) -> Self {
+        Parents {
+            current: self.current,
+            parent: self.parent,
+        }
+    }
+}
+
+impl<'content, C: Content + ?Sized, D: Content> Copy for Parents<'content, C, D> {}

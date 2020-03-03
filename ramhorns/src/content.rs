@@ -10,9 +10,10 @@
 use crate::encoding::Encoder;
 use crate::{Section, Template};
 
-use std::borrow::Borrow;
+use std::borrow::{Borrow, Cow, ToOwned};
 use std::collections::{BTreeMap, HashMap};
 use std::hash::{BuildHasher, Hash};
+use std::ops::Deref;
 
 /// Trait allowing the rendering to quickly access data stored in the type that
 /// implements it. You needn't worry about implementing it, in virtually all
@@ -51,26 +52,34 @@ pub trait Content {
     }
 
     /// Render a section with self.
-    fn render_section<'section, 'content: 'section, E: Encoder>(
-        &'content self,
-        mut section: Section<'section, 'content, E>,
+    fn render_section<'section, P, E>(
+        &self,
+        section: Section<'section, P>,
         encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    ) -> Result<(), E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
         if self.is_truthy() {
-            section.render_once(&(), encoder)
+            section.render_once(self, encoder)
         } else {
             Ok(())
         }
     }
 
     /// Render a section with self.
-    fn render_inverse<'section, 'content: 'section, E: Encoder>(
-        &'content self,
-        mut section: Section<'section, 'content, E>,
+    fn render_inverse<'section, P, E>(
+        &self,
+        section: Section<'section, P>,
         encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    ) -> Result<(), E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
         if !self.is_truthy() {
-            section.render_once(&(), encoder)
+            section.render_once(self, encoder)
         } else {
             Ok(())
         }
@@ -104,25 +113,33 @@ pub trait Content {
 
     /// Render a field by the hash **or** string of its name, as a section.
     /// If successful, returns `true` if the field exists in this content, otherwise `false`.
-    fn render_field_section<'section, 'content: 'section, E: Encoder>(
-        &'content self,
+    fn render_field_section<'section, P, E>(
+        &self,
         _hash: u64,
         _name: &str,
-        mut _section: Section<'section, 'content, E>,
+        mut _section: Section<'section, P>,
         _encoder: &mut E,
-    ) -> Result<bool, E::Error> {
+    ) -> Result<bool, E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
         Ok(false)
     }
 
     /// Render a field, by the hash of **or** string its name, as an inverse section.
     /// If successful, returns `true` if the field exists in this content, otherwise `false`.
-    fn render_field_inverse<'section, 'content: 'section, E: Encoder>(
-        &'content self,
+    fn render_field_inverse<'section, P, E>(
+        &self,
         _hash: u64,
         _name: &str,
-        mut _section: Section<'section, 'content, E>,
+        mut _section: Section<'section, P>,
         _encoder: &mut E,
-    ) -> Result<bool, E::Error> {
+    ) -> Result<bool, E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
         Ok(false)
     }
 }
@@ -272,11 +289,15 @@ impl<T: Content> Content for Option<T> {
         Ok(())
     }
 
-    fn render_section<'section, 'content: 'section, E: Encoder>(
-        &'content self,
-        mut section: Section<'section, 'content, E>,
+    fn render_section<'section, P, E>(
+        &self,
+        section: Section<'section, P>,
         encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    ) -> Result<(), E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
         if let Some(item) = self {
             section.render_once(item, encoder)?;
         }
@@ -313,11 +334,15 @@ impl<T: Content, U> Content for Result<T, U> {
         Ok(())
     }
 
-    fn render_section<'section, 'content: 'section, E: Encoder>(
-        &'content self,
-        mut section: Section<'section, 'content, E>,
+    fn render_section<'section, P, E>(
+        &self,
+        section: Section<'section, P>,
         encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    ) -> Result<(), E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
         if let Ok(item) = self {
             section.render_once(item, encoder)?;
         }
@@ -331,11 +356,15 @@ impl<T: Content> Content for Vec<T> {
         !self.is_empty()
     }
 
-    fn render_section<'section, 'content: 'section, E: Encoder>(
-        &'content self,
-        mut section: Section<'section, 'content, E>,
+    fn render_section<'section, P, E>(
+        &self,
+        section: Section<'section, P>,
         encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    ) -> Result<(), E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
         for item in self.iter() {
             section.render_once(item, encoder)?;
         }
@@ -349,11 +378,15 @@ impl<T: Content> Content for [T] {
         !self.is_empty()
     }
 
-    fn render_section<'section, 'content: 'section, E: Encoder>(
-        &'content self,
-        mut section: Section<'section, 'content, E>,
+    fn render_section<'section, P, E>(
+        &self,
+        section: Section<'section, P>,
         encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    ) -> Result<(), E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
         for item in self.iter() {
             section.render_once(item, encoder)?;
         }
@@ -372,30 +405,6 @@ where
         !self.is_empty()
     }
 
-    fn render_section<'section, 'content: 'section, E: Encoder>(
-        &'content self,
-        mut section: Section<'section, 'content, E>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
-        if self.is_truthy() {
-            section.render_once(self, encoder)
-        } else {
-            Ok(())
-        }
-    }
-
-    fn render_inverse<'section, 'content: 'section, E: Encoder>(
-        &'content self,
-        mut section: Section<'section, 'content, E>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
-        if !self.is_truthy() {
-            section.render_once(self, encoder)
-        } else {
-            Ok(())
-        }
-    }
-    
     fn render_field_escaped<E>(&self, _: u64, name: &str, encoder: &mut E) -> Result<bool, E::Error>
     where
         E: Encoder,
@@ -421,26 +430,34 @@ where
         }
     }
 
-    fn render_field_section<'section, 'content: 'section, E: Encoder>(
-        &'content self,
+    fn render_field_section<'section, P, E>(
+        &self,
         _: u64,
         name: &str,
-        section: Section<'section, 'content, E>,
+        section: Section<'section, P>,
         encoder: &mut E,
-    ) -> Result<bool, E::Error> {
+    ) -> Result<bool, E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
         match self.get(name) {
             Some(v) => v.render_section(section, encoder).map(|_| true),
             None => Ok(false),
         }
     }
 
-    fn render_field_inverse<'section, 'content: 'section, E: Encoder>(
-        &'content self,
+    fn render_field_inverse<'section, P, E>(
+        &self,
         _: u64,
         name: &str,
-        section: Section<'section, 'content, E>,
+        section: Section<'section, P>,
         encoder: &mut E,
-    ) -> Result<bool, E::Error> {
+    ) -> Result<bool, E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
         match self.get(name) {
             Some(v) => v.render_inverse(section, encoder).map(|_| true),
             None => Ok(false),
@@ -457,30 +474,6 @@ where
         !self.is_empty()
     }
 
-    fn render_section<'section, 'content: 'section, E: Encoder>(
-        &'content self,
-        mut section: Section<'section, 'content, E>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
-        if self.is_truthy() {
-            section.render_once(self, encoder)
-        } else {
-            Ok(())
-        }
-    }
-
-    fn render_inverse<'section, 'content: 'section, E: Encoder>(
-        &'content self,
-        mut section: Section<'section, 'content, E>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
-        if !self.is_truthy() {
-            section.render_once(self, encoder)
-        } else {
-            Ok(())
-        }
-    }
-
     fn render_field_escaped<E>(&self, _: u64, name: &str, encoder: &mut E) -> Result<bool, E::Error>
     where
         E: Encoder,
@@ -506,26 +499,34 @@ where
         }
     }
 
-    fn render_field_section<'section, 'content: 'section, E: Encoder>(
-        &'content self,
+    fn render_field_section<'section, P, E>(
+        &self,
         _: u64,
         name: &str,
-        section: Section<'section, 'content, E>,
+        section: Section<'section, P>,
         encoder: &mut E,
-    ) -> Result<bool, E::Error> {
+    ) -> Result<bool, E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
         match self.get(name) {
             Some(v) => v.render_section(section, encoder).map(|_| true),
             None => Ok(false),
         }
     }
 
-    fn render_field_inverse<'section, 'content: 'section, E: Encoder>(
-        &'content self,
+    fn render_field_inverse<'section, P, E>(
+        &self,
         _: u64,
         name: &str,
-        section: Section<'section, 'content, E>,
+        section: Section<'section, P>,
         encoder: &mut E,
-    ) -> Result<bool, E::Error> {
+    ) -> Result<bool, E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
         match self.get(name) {
             Some(v) => v.render_inverse(section, encoder).map(|_| true),
             None => Ok(false),
@@ -533,128 +534,98 @@ where
     }
 }
 
-impl<T: Content + ?Sized> Content for &'_ T {
-    fn is_truthy(&self) -> bool {
-        (*self).is_truthy()
-    }
+macro_rules! impl_pointer_types {
+    ($( $ty:ty $(: $bounds:tt)? ),*) => {
+        $(
+            impl<T: Content + ?Sized $(+ $bounds)?> Content for $ty {
+                fn is_truthy(&self) -> bool {
+                    self.deref().is_truthy()
+                }
 
-    fn capacity_hint(&self, tpl: &Template) -> usize {
-        (*self).capacity_hint(tpl)
-    }
+                fn capacity_hint(&self, tpl: &Template) -> usize {
+                    self.deref().capacity_hint(tpl)
+                }
 
-    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
-        (*self).render_escaped(encoder)
-    }
+                fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
+                    self.deref().render_escaped(encoder)
+                }
 
-    fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
-        (*self).render_unescaped(encoder)
-    }
+                fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
+                    self.deref().render_unescaped(encoder)
+                }
 
-    fn render_section<'section, 'content: 'section, E: Encoder>(
-        &'content self,
-        section: Section<'section, 'content, E>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
-        (*self).render_section(section, encoder)
-    }
+                fn render_section<'section, P, E>(
+                    &self,
+                    section: Section<'section, P>,
+                    encoder: &mut E,
+                ) -> Result<(), E::Error>
+                where
+                    P: Content + Copy + 'section,
+                    E: Encoder,
+                {
+                    self.deref().render_section(section, encoder)
+                }
 
-    fn render_inverse<'section, 'content: 'section, E: Encoder>(
-        &'content self,
-        section: Section<'section, 'content, E>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
-        (*self).render_inverse(section, encoder)
-    }
+                fn render_inverse<'section, P, E>(
+                    &self,
+                    section: Section<'section, P>,
+                    encoder: &mut E,
+                ) -> Result<(), E::Error>
+                where
+                    P: Content + Copy + 'section,
+                    E: Encoder,
+                {
+                    self.deref().render_inverse(section, encoder)
+                }
 
-    fn render_field_escaped<E: Encoder>(
-        &self,
-        hash: u64,
-        name: &str,
-        encoder: &mut E,
-    ) -> Result<bool, E::Error> {
-        (*self).render_field_escaped(hash, name, encoder)
-    }
+                fn render_field_escaped<E: Encoder>(
+                    &self,
+                    hash: u64,
+                    name: &str,
+                    encoder: &mut E,
+                ) -> Result<bool, E::Error> {
+                    self.deref().render_field_escaped(hash, name, encoder)
+                }
 
-    fn render_field_unescaped<E: Encoder>(
-        &self,
-        hash: u64,
-        name: &str,
-        encoder: &mut E,
-    ) -> Result<bool, E::Error> {
-        (*self).render_field_unescaped(hash, name, encoder)
-    }
+                fn render_field_unescaped<E: Encoder>(
+                    &self,
+                    hash: u64,
+                    name: &str,
+                    encoder: &mut E,
+                ) -> Result<bool, E::Error> {
+                    self.deref().render_field_unescaped(hash, name, encoder)
+                }
 
-    fn render_field_section<'section, 'content: 'section, E: Encoder>(
-        &'content self,
-        hash: u64,
-        name: &str,
-        section: Section<'section, 'content, E>,
-        encoder: &mut E,
-    ) -> Result<bool, E::Error> {
-        (*self).render_field_section(hash, name, section, encoder)
-    }
+                fn render_field_section<'section, P, E>(
+                    &self,
+                    hash: u64,
+                    name: &str,
+                    section: Section<'section, P>,
+                    encoder: &mut E,
+                ) -> Result<bool, E::Error>
+                where
+                    P: Content + Copy + 'section,
+                    E: Encoder,
+                {
+                    self.deref().render_field_section(hash, name, section, encoder)
+                }
 
-    fn render_field_inverse<'section, 'content: 'section, E: Encoder>(
-        &'content self,
-        hash: u64,
-        name: &str,
-        section: Section<'section, 'content, E>,
-        encoder: &mut E,
-    ) -> Result<bool, E::Error> {
-        (*self).render_field_inverse(hash, name, section, encoder)
-    }
-}
-
-/// A helper trait allowing to turnt Content into a trait object
-/// (with a particular Encoder)
-pub(crate) trait EncContent<E: Encoder> {
-    fn render_field_escaped(&self, hash: u64, name: &str, enc: &mut E) -> Result<bool, E::Error>;
-
-    fn render_field_unescaped(&self, hash: u64, name: &str, enc: &mut E) -> Result<bool, E::Error>;
-
-    fn render_field_section<'section, 'content: 'section>(
-        &'content self,
-        hash: u64,
-        name: &str,
-        section: Section<'section, 'content, E>,
-        encoder: &mut E,
-    ) -> Result<bool, E::Error>;
-
-    fn render_field_inverse<'section, 'content: 'section>(
-        &'content self,
-        hash: u64,
-        name: &str,
-        section: Section<'section, 'content, E>,
-        encoder: &mut E,
-    ) -> Result<bool, E::Error>;
-}
-
-impl<T: Content, E: Encoder> EncContent<E> for T {
-    fn render_field_escaped(&self, hash: u64, name: &str, enc: &mut E) -> Result<bool, E::Error> {
-        <Self as Content>::render_field_escaped(self, hash, name, enc)
-    }
-
-    fn render_field_unescaped(&self, hash: u64, name: &str, enc: &mut E) -> Result<bool, E::Error> {
-        <Self as Content>::render_field_unescaped(self, hash, name, enc)
-    }
-
-    fn render_field_section<'section, 'content: 'section>(
-        &'content self,
-        hash: u64,
-        name: &str,
-        section: Section<'section, 'content, E>,
-        encoder: &mut E,
-    ) -> Result<bool, E::Error> {
-        <Self as Content>::render_field_section(self, hash, name, section, encoder)
-    }
-
-    fn render_field_inverse<'section, 'content: 'section>(
-        &'content self,
-        hash: u64,
-        name: &str,
-        section: Section<'section, 'content, E>,
-        encoder: &mut E,
-    ) -> Result<bool, E::Error> {
-        <Self as Content>::render_field_inverse(self, hash, name, section, encoder)
+                fn render_field_inverse<'section, P, E>(
+                    &self,
+                    hash: u64,
+                    name: &str,
+                    section: Section<'section, P>,
+                    encoder: &mut E,
+                ) -> Result<bool, E::Error>
+                where
+                    P: Content + Copy + 'section,
+                    E: Encoder,
+                {
+                    self.deref().render_field_inverse(hash, name, section, encoder)
+                }
+            }
+        )*
     }
 }
+
+impl_pointer_types!(&T, Box<T>, std::rc::Rc<T>, std::sync::Arc<T>, Cow<'_, T>: ToOwned);
