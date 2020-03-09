@@ -9,6 +9,7 @@
 
 use crate::encoding::Encoder;
 use crate::{Section, Template};
+use crate::traits::{Renderable};
 
 use std::borrow::{Borrow, Cow, ToOwned};
 use std::collections::{BTreeMap, HashMap};
@@ -58,7 +59,7 @@ pub trait Content: Sized {
         encoder: &mut E,
     ) -> Result<(), E::Error>
     where
-        P: Content + Copy + 'section,
+        P: Renderable,
         E: Encoder,
     {
         if self.is_truthy() {
@@ -75,7 +76,7 @@ pub trait Content: Sized {
         encoder: &mut E,
     ) -> Result<(), E::Error>
     where
-        P: Content + Copy + 'section,
+        P: Renderable,
         E: Encoder,
     {
         if !self.is_truthy() {
@@ -121,7 +122,7 @@ pub trait Content: Sized {
         _encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: Content + Copy + 'section,
+        P: Renderable,
         E: Encoder,
     {
         Ok(false)
@@ -137,7 +138,7 @@ pub trait Content: Sized {
         _encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: Content + Copy + 'section,
+        P: Renderable,
         E: Encoder,
     {
         Ok(false)
@@ -295,10 +296,10 @@ impl<T: Content> Content for Option<T> {
         encoder: &mut E,
     ) -> Result<(), E::Error>
     where
-        P: Content + Copy + 'section,
+        P: Renderable,
         E: Encoder,
     {
-        if let Some(item) = self {
+        if let Some(ref item) = self {
             section.render_once(item, encoder)?;
         }
 
@@ -340,7 +341,7 @@ impl<T: Content, U> Content for Result<T, U> {
         encoder: &mut E,
     ) -> Result<(), E::Error>
     where
-        P: Content + Copy + 'section,
+        P: Renderable,
         E: Encoder,
     {
         if let Ok(item) = self {
@@ -362,7 +363,7 @@ impl<T: Content> Content for Vec<T> {
         encoder: &mut E,
     ) -> Result<(), E::Error>
     where
-        P: Content + Copy + 'section,
+        P: Renderable,
         E: Encoder,
     {
         for item in self.iter() {
@@ -384,7 +385,7 @@ impl<T: Content> Content for &[T] {
         encoder: &mut E,
     ) -> Result<(), E::Error>
     where
-        P: Content + Copy + 'section,
+        P: Renderable,
         E: Encoder,
     {
         for item in self.iter() {
@@ -438,7 +439,7 @@ where
         encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: Content + Copy + 'section,
+        P: Renderable,
         E: Encoder,
     {
         match self.get(name) {
@@ -455,7 +456,7 @@ where
         encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: Content + Copy + 'section,
+        P: Renderable,
         E: Encoder,
     {
         match self.get(name) {
@@ -507,7 +508,7 @@ where
         encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: Content + Copy + 'section,
+        P: Renderable,
         E: Encoder,
     {
         match self.get(name) {
@@ -524,7 +525,7 @@ where
         encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: Content + Copy + 'section,
+        P: Renderable,
         E: Encoder,
     {
         match self.get(name) {
@@ -560,7 +561,7 @@ macro_rules! impl_pointer_types {
                     encoder: &mut E,
                 ) -> Result<(), E::Error>
                 where
-                    P: Content + Copy + 'section,
+                    P: Renderable,
                     E: Encoder,
                 {
                     self.deref().render_section(section, encoder)
@@ -572,7 +573,7 @@ macro_rules! impl_pointer_types {
                     encoder: &mut E,
                 ) -> Result<(), E::Error>
                 where
-                    P: Content + Copy + 'section,
+                    P: Renderable,
                     E: Encoder,
                 {
                     self.deref().render_inverse(section, encoder)
@@ -604,7 +605,7 @@ macro_rules! impl_pointer_types {
                     encoder: &mut E,
                 ) -> Result<bool, E::Error>
                 where
-                    P: Content + Copy + 'section,
+                    P: Renderable,
                     E: Encoder,
                 {
                     self.deref().render_field_section(hash, name, section, encoder)
@@ -618,7 +619,7 @@ macro_rules! impl_pointer_types {
                     encoder: &mut E,
                 ) -> Result<bool, E::Error>
                 where
-                    P: Content + Copy + 'section,
+                    P: Renderable,
                     E: Encoder,
                 {
                     self.deref().render_field_inverse(hash, name, section, encoder)

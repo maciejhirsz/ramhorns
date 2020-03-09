@@ -80,7 +80,7 @@ mod cmark;
 mod content;
 mod error;
 mod template;
-mod combine;
+pub mod traits;
 
 pub mod encoding;
 

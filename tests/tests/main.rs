@@ -460,16 +460,15 @@ fn can_render_self_referencing_structures() {
 
     let tpl = Template::new("{{name}}: {{#subpages}}{{name}}{{/subpages}}").unwrap();
 
-    // This currently blows the stack when compiling:
-    // let rendered = tpl.render(&Page {
-    //     name: "Hello",
-    //     subpages: &[
-    //         Page { name: "Foo", subpages: &[] },
-    //         Page { name: "Bar", subpages: &[] },
-    //     ],
-    // });
+    let rendered = tpl.render(&Page {
+        name: "Hello",
+        subpages: &[
+            Page { name: "Foo", subpages: &[] },
+            Page { name: "Bar", subpages: &[] },
+        ],
+    });
 
-    // assert_eq!(rendered, "Hello: FooBar");
+    assert_eq!(rendered, "Hello: FooBar");
 }
 
 #[test]

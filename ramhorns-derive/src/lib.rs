@@ -123,7 +123,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
             fn capacity_hint(&self, tpl: &ramhorns::Template) -> usize {
                 tpl.capacity_hint() #( + self.#fields.capacity_hint(tpl) )*
             }
-            
+
             fn render_field_escaped<E>(&self, hash: u64, _: &str, encoder: &mut E) -> Result<bool, E::Error>
             where
                 E: ramhorns::encoding::Encoder,
@@ -146,7 +146,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
 
             fn render_field_section<'section, P, E>(&self, hash: u64, _: &str, section: ramhorns::Section<'section, P>, encoder: &mut E) -> Result<bool, E::Error>
             where
-            	P: ramhorns::Content + Copy + 'section,
+            	P: ramhorns::traits::Renderable,
                 E: ramhorns::encoding::Encoder,
             {
                 match hash {
@@ -157,7 +157,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
 
             fn render_field_inverse<'section, P, E>(&self, hash: u64, _: &str, section: ramhorns::Section<'section, P>, encoder: &mut E) -> Result<bool, E::Error>
             where
-            	P: ramhorns::Content + Copy + 'section,
+            	P: ramhorns::traits::Renderable,
                 E: ramhorns::encoding::Encoder,
             {
                 match hash {
