@@ -451,6 +451,53 @@ fn can_reference_parent_content() {
 }
 
 #[test]
+fn can_render_self_referencing_structures() {
+    #[derive(Content)]
+    struct Page<'a> {
+        name: &'a str,
+        subpages: &'a [Page<'a>],
+    }
+
+    let tpl = Template::new("{{name}}: {{#subpages}}{{name}}{{/subpages}}").unwrap();
+
+    // This currently blows the stack when compiling:
+    // let rendered = tpl.render(&Page {
+    //     name: "Hello",
+    //     subpages: &[
+    //         Page { name: "Foo", subpages: &[] },
+    //         Page { name: "Bar", subpages: &[] },
+    //     ],
+    // });
+
+    // assert_eq!(rendered, "Hello: FooBar");
+}
+
+#[test]
+fn can_render_fields_from_parents() {
+    #[derive(Content)]
+    struct Father<'a> {
+        father: &'a str,
+        son: Son<'a>,
+    }
+
+    #[derive(Content)]
+    struct Son<'a> {
+        name: &'a str,
+    }
+
+    let tpl = Template::new("{{#son}}{{name}}'s father is {{father}}.{{/son}}").unwrap();
+
+    let rendered = tpl.render(&Father {
+        father: "Bob",
+        son: Son {
+            name: "Charlie",
+        }
+    });
+
+    assert_eq!(rendered, "Charlie's father is Bob.");
+}
+
+#[test]
 fn simple_partials() {
     let tpl = Template::from_file("templates/layout.html").unwrap();
     let html = tpl.render(&"");
