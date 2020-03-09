@@ -60,6 +60,7 @@ pub trait Content {
     where
         P: Content + Copy + 'section,
         E: Encoder,
+        Self: Sized,
     {
         if self.is_truthy() {
             section.render_once(self, encoder)
@@ -77,6 +78,7 @@ pub trait Content {
     where
         P: Content + Copy + 'section,
         E: Encoder,
+        Self: Sized,
     {
         if !self.is_truthy() {
             section.render_once(self, encoder)
@@ -537,7 +539,7 @@ where
 macro_rules! impl_pointer_types {
     ($( $ty:ty $(: $bounds:tt)? ),*) => {
         $(
-            impl<T: Content + ?Sized $(+ $bounds)?> Content for $ty {
+            impl<T: Content $(+ $bounds)?> Content for $ty {
                 fn is_truthy(&self) -> bool {
                     self.deref().is_truthy()
                 }
@@ -562,6 +564,7 @@ macro_rules! impl_pointer_types {
                 where
                     P: Content + Copy + 'section,
                     E: Encoder,
+                    Self: Sized,
                 {
                     self.deref().render_section(section, encoder)
                 }

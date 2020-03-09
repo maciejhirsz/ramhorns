@@ -10,6 +10,7 @@
 use super::{Block, Tag};
 use crate::encoding::Encoder;
 use crate::Content;
+use crate::combine::Combine;
 
 /// A section of a `Template` that can be rendered individually, usually delimited by
 /// `{{#section}} ... {{/section}}` tags.
@@ -40,7 +41,7 @@ impl<'section, P: Content + Copy + 'section> Section<'section, P> {
 
     /// Render this section once to the provided `Encoder`. Some `Content`s will call
     /// this method multiple times (to render a list of elements).
-    pub fn render_once<C: Content + ?Sized, E: Encoder>(
+    pub fn render_once<C: Content, E: Encoder>(
         &self,
         content: &C,
         encoder: &mut E,
@@ -50,6 +51,8 @@ impl<'section, P: Content + Copy + 'section> Section<'section, P> {
             current: content,
             parent: &self.parents,
         };
+
+        let test = ().combine(content);
 
         while let Some(block) = self.blocks.get(index) {
             index += 1;
