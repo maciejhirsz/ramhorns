@@ -18,7 +18,7 @@ use std::ops::Deref;
 /// Trait allowing the rendering to quickly access data stored in the type that
 /// implements it. You needn't worry about implementing it, in virtually all
 /// cases the `#[derive(Content)]` attribute above your types should be sufficient.
-pub trait Content {
+pub trait Content: Sized {
     /// Marks whether this content is truthy. Used when attempting to render a section.
     fn is_truthy(&self) -> bool {
         true
@@ -60,7 +60,6 @@ pub trait Content {
     where
         P: Content + Copy + 'section,
         E: Encoder,
-        Self: Sized,
     {
         if self.is_truthy() {
             section.render_once(self, encoder)
@@ -78,7 +77,6 @@ pub trait Content {
     where
         P: Content + Copy + 'section,
         E: Encoder,
-        Self: Sized,
     {
         if !self.is_truthy() {
             section.render_once(self, encoder)
@@ -148,7 +146,7 @@ pub trait Content {
 
 impl Content for () {}
 
-impl Content for str {
+impl Content for &str {
     fn is_truthy(&self) -> bool {
         !self.is_empty()
     }
@@ -375,7 +373,7 @@ impl<T: Content> Content for Vec<T> {
     }
 }
 
-impl<T: Content> Content for [T] {
+impl<T: Content> Content for &[T] {
     fn is_truthy(&self) -> bool {
         !self.is_empty()
     }
@@ -564,7 +562,6 @@ macro_rules! impl_pointer_types {
                 where
                     P: Content + Copy + 'section,
                     E: Encoder,
-                    Self: Sized,
                 {
                     self.deref().render_section(section, encoder)
                 }
