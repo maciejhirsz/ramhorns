@@ -34,6 +34,332 @@ impl<'section> Section<'section, ()> {
     }
 }
 
+trait Renderable: Sized {
+    /// Render a field by the hash **or** string of its name.
+    ///
+    /// This will escape HTML characters, eg: `<` will become `&lt;`.
+    /// If successful, returns `true` if the field exists in this content, otherwise `false`.
+    fn render_field_escaped<E: Encoder>(
+        &self,
+        _hash: u64,
+        _name: &str,
+        _encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        Ok(false)
+    }
+
+    /// Render a field by the hash **or** string of its name.
+    ///
+    /// This doesn't perform any escaping at all.
+    /// If successful, returns `true` if the field exists in this content, otherwise `false`.
+    fn render_field_unescaped<E: Encoder>(
+        &self,
+        _hash: u64,
+        _name: &str,
+        _encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        Ok(false)
+    }
+
+    /// Render a field by the hash **or** string of its name, as a section.
+    /// If successful, returns `true` if the field exists in this content, otherwise `false`.
+    fn render_field_section<'section, P, E>(
+        &self,
+        _hash: u64,
+        _name: &str,
+        _section: Section<'section, P>,
+        _encoder: &mut E,
+    ) -> Result<bool, E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
+        Ok(false)
+    }
+
+    /// Render a field, by the hash of **or** string its name, as an inverse section.
+    /// If successful, returns `true` if the field exists in this content, otherwise `false`.
+    fn render_field_inverse<'section, P, E>(
+        &self,
+        _hash: u64,
+        _name: &str,
+        _section: Section<'section, P>,
+        _encoder: &mut E,
+    ) -> Result<bool, E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
+        Ok(false)
+    }
+}
+
+impl Renderable for () {}
+
+impl<A: Content> Renderable for &A {
+    fn render_field_escaped<E: Encoder>(
+        &self,
+        hash: u64,
+        name: &str,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        (*self).render_field_escaped(hash, name, encoder)
+    }
+
+    fn render_field_unescaped<E: Encoder>(
+        &self,
+        hash: u64,
+        name: &str,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        (*self).render_field_unescaped(hash, name, encoder)
+    }
+
+    fn render_field_section<'section, P, E>(
+        &self,
+        hash: u64,
+        name: &str,
+        section: Section<'section, P>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
+        (*self).render_field_section(hash, name, section, encoder)
+    }
+
+    fn render_field_inverse<'section, P, E>(
+        &self,
+        hash: u64,
+        name: &str,
+        section: Section<'section, P>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
+        (*self).render_field_inverse(hash, name, section, encoder)
+    }
+}
+
+impl<A: Content, B: Content> Renderable for (&A, &B) {
+    fn render_field_escaped<E: Encoder>(
+        &self,
+        hash: u64,
+        name: &str,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        match self.1.render_field_escaped(hash, name, encoder) {
+            Ok(false) => self.0.render_field_escaped(hash, name, encoder),
+            res => res,
+        }
+    }
+
+    fn render_field_unescaped<E: Encoder>(
+        &self,
+        hash: u64,
+        name: &str,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        match self.1.render_field_unescaped(hash, name, encoder) {
+            Ok(false) => self.0.render_field_unescaped(hash, name, encoder),
+            res => res,
+        }
+    }
+
+    fn render_field_section<'section, P, E>(
+        &self,
+        hash: u64,
+        name: &str,
+        section: Section<'section, P>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
+        match self.1.render_field_section(hash, name, section, encoder) {
+            Ok(false) => self.0.render_field_section(hash, name, section, encoder),
+            res => res,
+        }
+    }
+
+    fn render_field_inverse<'section, P, E>(
+        &self,
+        hash: u64,
+        name: &str,
+        section: Section<'section, P>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
+        match self.1.render_field_inverse(hash, name, section, encoder) {
+            Ok(false) => self.0.render_field_inverse(hash, name, section, encoder),
+            res => res,
+        }
+    }
+}
+
+impl<A: Content, B: Content, C: Content> Renderable for (&A, &B, &C) {
+    fn render_field_escaped<E: Encoder>(
+        &self,
+        hash: u64,
+        name: &str,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        match self.2.render_field_escaped(hash, name, encoder) {
+            Ok(false) => match self.1.render_field_escaped(hash, name, encoder) {
+                Ok(false) => self.0.render_field_escaped(hash, name, encoder),
+                res => res,
+            },
+            res => res,
+        }
+    }
+
+    fn render_field_unescaped<E: Encoder>(
+        &self,
+        hash: u64,
+        name: &str,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        match self.2.render_field_unescaped(hash, name, encoder) {
+            Ok(false) => match self.1.render_field_unescaped(hash, name, encoder) {
+                Ok(false) => self.0.render_field_unescaped(hash, name, encoder),
+                res => res,
+            }
+            res => res,
+        }
+    }
+
+    fn render_field_section<'section, P, E>(
+        &self,
+        hash: u64,
+        name: &str,
+        section: Section<'section, P>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
+        match self.2.render_field_section(hash, name, section, encoder) {
+            Ok(false) => match self.1.render_field_section(hash, name, section, encoder) {
+                Ok(false) => self.0.render_field_section(hash, name, section, encoder),
+                res => res,
+            },
+            res => res,
+        }
+    }
+
+    fn render_field_inverse<'section, P, E>(
+        &self,
+        hash: u64,
+        name: &str,
+        section: Section<'section, P>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
+        match self.2.render_field_inverse(hash, name, section, encoder) {
+            Ok(false) => match self.1.render_field_inverse(hash, name, section, encoder) {
+                Ok(false) => self.0.render_field_inverse(hash, name, section, encoder),
+                res => res,
+            },
+            res => res,
+        }
+    }
+}
+
+impl<A: Content, B: Content, C: Content, D: Content> Renderable for (&A, &B, &C, &D) {
+    fn render_field_escaped<E: Encoder>(
+        &self,
+        hash: u64,
+        name: &str,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        match self.3.render_field_escaped(hash, name, encoder) {
+            Ok(false) => match self.2.render_field_escaped(hash, name, encoder) {
+                Ok(false) => match self.1.render_field_escaped(hash, name, encoder) {
+                    Ok(false) => self.0.render_field_escaped(hash, name, encoder),
+                    res => res,
+                },
+                res => res,
+            },
+            res => res,
+        }
+    }
+
+    fn render_field_unescaped<E: Encoder>(
+        &self,
+        hash: u64,
+        name: &str,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error> {
+        match self.3.render_field_unescaped(hash, name, encoder) {
+            Ok(false) => match self.2.render_field_unescaped(hash, name, encoder) {
+                Ok(false) => match self.1.render_field_unescaped(hash, name, encoder) {
+                    Ok(false) => self.0.render_field_unescaped(hash, name, encoder),
+                    res => res,
+                },
+                res => res,
+            }
+            res => res,
+        }
+    }
+
+    fn render_field_section<'section, P, E>(
+        &self,
+        hash: u64,
+        name: &str,
+        section: Section<'section, P>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
+        match self.3.render_field_section(hash, name, section, encoder) {
+            Ok(false) => match self.2.render_field_section(hash, name, section, encoder) {
+                Ok(false) => match self.1.render_field_section(hash, name, section, encoder) {
+                    Ok(false) => self.0.render_field_section(hash, name, section, encoder),
+                    res => res,
+                },
+                res => res,
+            },
+            res => res,
+        }
+    }
+
+    fn render_field_inverse<'section, P, E>(
+        &self,
+        hash: u64,
+        name: &str,
+        section: Section<'section, P>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error>
+    where
+        P: Content + Copy + 'section,
+        E: Encoder,
+    {
+        match self.3.render_field_inverse(hash, name, section, encoder) {
+            Ok(false) => match self.2.render_field_inverse(hash, name, section, encoder) {
+                Ok(false) => match self.1.render_field_inverse(hash, name, section, encoder) {
+                    Ok(false) => self.0.render_field_inverse(hash, name, section, encoder),
+                    res => res,
+                },
+                res => res,
+            },
+            res => res,
+        }
+    }
+}
+
 impl<'section, P: Content + Copy + 'section> Section<'section, P> {
     fn with_parents(blocks: &'section [Block<'section>], parents: P) -> Self {
         Self { blocks, parents }

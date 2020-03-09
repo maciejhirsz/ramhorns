@@ -117,7 +117,7 @@ pub trait Content: Sized {
         &self,
         _hash: u64,
         _name: &str,
-        mut _section: Section<'section, P>,
+        _section: Section<'section, P>,
         _encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
@@ -133,7 +133,7 @@ pub trait Content: Sized {
         &self,
         _hash: u64,
         _name: &str,
-        mut _section: Section<'section, P>,
+        _section: Section<'section, P>,
         _encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
