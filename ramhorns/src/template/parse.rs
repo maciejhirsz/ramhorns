@@ -7,7 +7,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
-use super::{Block, Error, Tag, Template, Partials};
+use super::{Block, Error, Partials, Tag, Template};
 
 impl<'tpl> Template<'tpl> {
     pub(crate) fn parse(
@@ -17,8 +17,7 @@ impl<'tpl> Template<'tpl> {
         last: &mut usize,
         until: Option<&'tpl str>,
         partials: &mut impl Partials<'tpl>,
-    ) -> Result<usize, Error>
-    {
+    ) -> Result<usize, Error> {
         let blocks_at_start = self.blocks.len();
 
         while let Some((start, bytes)) = iter.next() {
@@ -80,8 +79,7 @@ impl<'tpl> Template<'tpl> {
 
                         match tag {
                             Tag::Section(_) | Tag::Inverse(_) => {
-                                let count =
-                                    self.parse(source, iter, last, Some(name), partials)?;
+                                let count = self.parse(source, iter, last, Some(name), partials)?;
 
                                 match self.blocks[insert_index].tag {
                                     Tag::Section(ref mut c) | Tag::Inverse(ref mut c) => *c = count,

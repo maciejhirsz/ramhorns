@@ -193,7 +193,7 @@ impl Templates {
                 let path = entry?.path();
                 if path.is_dir() {
                     load_folder(&path, templates)?;
-                } else if path.extension().unwrap_or("".as_ref()) == "html" {
+                } else if path.extension().unwrap_or_else(|| "".as_ref()) == "html" {
                     let name = path
                         .strip_prefix(&templates.dir)
                         .unwrap_or(&path)
