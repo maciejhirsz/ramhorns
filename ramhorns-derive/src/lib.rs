@@ -126,6 +126,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                 tpl.capacity_hint() #( + self.#fields.capacity_hint(tpl) )*
             }
 
+            #[inline]
             fn render_field_escaped<E>(&self, hash: u64, _: &str, encoder: &mut E) -> Result<bool, E::Error>
             where
                 E: ramhorns::encoding::Encoder,
@@ -136,6 +137,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                 }
             }
 
+            #[inline]
             fn render_field_unescaped<E>(&self, hash: u64, _: &str, encoder: &mut E) -> Result<bool, E::Error>
             where
                 E: ramhorns::encoding::Encoder,

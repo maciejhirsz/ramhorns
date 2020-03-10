@@ -162,7 +162,8 @@ impl<W: io::Write> Encoder for EscapingIOEncoder<W> {
     }
 }
 
-/// Error type for String, impossible to instantiate
+/// Error type for `String`, impossible to instantiate.
+/// Rust optimizes `Result<(), NeverError>` to 0-size.
 pub enum NeverError {}
 
 impl Encoder for String {

@@ -6,7 +6,7 @@
 [![Crates.io version shield](https://img.shields.io/crates/v/ramhorns.svg)](https://crates.io/crates/ramhorns)
 [![Crates.io license shield](https://img.shields.io/crates/l/ramhorns.svg)](https://crates.io/crates/ramhorns)
 
-Fastest [**Mustache**](https://mustache.github.io/) template engine implementation
+Fast [**Mustache**](https://mustache.github.io/) template engine implementation
 in pure Rust.
 
 **Ramhorns** loads and processes templates **at runtime**. It comes with a derive macro
