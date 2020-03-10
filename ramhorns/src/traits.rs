@@ -170,11 +170,11 @@ where
     }
 
     #[inline]
-    fn render_field_section<'section, P, E>(
+    fn render_field_section<P, E>(
         &self,
         hash: u64,
         name: &str,
-        section: Section<'section, P>,
+        section: Section<P>,
         encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
@@ -194,11 +194,11 @@ where
     }
 
     #[inline]
-    fn render_field_inverse<'section, P, E>(
+    fn render_field_inverse<P, E>(
         &self,
         hash: u64,
         name: &str,
-        section: Section<'section, P>,
+        section: Section<P>,
         encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
@@ -208,7 +208,10 @@ where
         match self.3.render_field_inverse(hash, name, section, encoder) {
             Ok(false) => match self.2.render_field_inverse(hash, name, section, encoder) {
                 Ok(false) => match self.1.render_field_inverse(hash, name, section, encoder) {
-                    Ok(false) => self.0.render_field_inverse(hash, name, section, encoder),
+                    Ok(false) => match self.0.render_field_inverse(hash, name, section, encoder) {
+                        Ok(false) => section.render(encoder).map(|()| true),
+                        res => res,
+                    },
                     res => res,
                 },
                 res => res,

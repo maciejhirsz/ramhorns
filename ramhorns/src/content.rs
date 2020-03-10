@@ -8,7 +8,7 @@
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
 use crate::encoding::Encoder;
-use crate::{Section, Template};
+use crate::template::{Section, Template};
 use crate::traits::{ContentSequence};
 
 use std::borrow::{Borrow, Cow, ToOwned};
@@ -58,34 +58,36 @@ pub trait Content: Sized {
     }
 
     /// Render a section with self.
-    fn render_section<P, E>(
+    #[inline]
+    fn render_section<C, E>(
         &self,
-        section: Section<P>,
+        section: Section<C>,
         encoder: &mut E,
     ) -> Result<(), E::Error>
     where
-        P: ContentSequence,
+        C: ContentSequence,
         E: Encoder,
     {
         if self.is_truthy() {
-            section.render_once(self, encoder)
+            section.with(self).render(encoder)
         } else {
             Ok(())
         }
     }
 
     /// Render a section with self.
-    fn render_inverse<P, E>(
+    #[inline]
+    fn render_inverse<C, E>(
         &self,
-        section: Section<P>,
+        section: Section<C>,
         encoder: &mut E,
     ) -> Result<(), E::Error>
     where
-        P: ContentSequence,
+        C: ContentSequence,
         E: Encoder,
     {
         if !self.is_truthy() {
-            section.render_once(self, encoder)
+            section.with(self).render(encoder)
         } else {
             Ok(())
         }
@@ -122,15 +124,15 @@ pub trait Content: Sized {
     /// Render a field by the hash **or** string of its name, as a section.
     /// If successful, returns `true` if the field exists in this content, otherwise `false`.
     #[inline]
-    fn render_field_section<P, E>(
+    fn render_field_section<C, E>(
         &self,
         _hash: u64,
         _name: &str,
-        _section: Section<P>,
+        _section: Section<C>,
         _encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: ContentSequence,
+        C: ContentSequence,
         E: Encoder,
     {
         Ok(false)
@@ -139,22 +141,27 @@ pub trait Content: Sized {
     /// Render a field, by the hash of **or** string its name, as an inverse section.
     /// If successful, returns `true` if the field exists in this content, otherwise `false`.
     #[inline]
-    fn render_field_inverse<P, E>(
+    fn render_field_inverse<C, E>(
         &self,
         _hash: u64,
         _name: &str,
-        _section: Section<P>,
+        _section: Section<C>,
         _encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: ContentSequence,
+        C: ContentSequence,
         E: Encoder,
     {
         Ok(false)
     }
 }
 
-impl Content for () {}
+impl Content for () {
+    #[inline]
+    fn is_truthy(&self) -> bool {
+        false
+    }
+}
 
 impl Content for &str {
     #[inline]
@@ -326,17 +333,17 @@ impl<T: Content> Content for Option<T> {
     }
 
     #[inline]
-    fn render_section<P, E>(
+    fn render_section<C, E>(
         &self,
-        section: Section<P>,
+        section: Section<C>,
         encoder: &mut E,
     ) -> Result<(), E::Error>
     where
-        P: ContentSequence,
+        C: ContentSequence,
         E: Encoder,
     {
         if let Some(ref item) = self {
-            section.render_once(item, encoder)?;
+            section.with(item).render(encoder)?;
         }
 
         Ok(())
@@ -376,17 +383,17 @@ impl<T: Content, U> Content for Result<T, U> {
     }
 
     #[inline]
-    fn render_section<P, E>(
+    fn render_section<C, E>(
         &self,
-        section: Section<P>,
+        section: Section<C>,
         encoder: &mut E,
     ) -> Result<(), E::Error>
     where
-        P: ContentSequence,
+        C: ContentSequence,
         E: Encoder,
     {
         if let Ok(item) = self {
-            section.render_once(item, encoder)?;
+            section.with(item).render(encoder)?;
         }
 
         Ok(())
@@ -400,17 +407,17 @@ impl<T: Content> Content for Vec<T> {
     }
 
     #[inline]
-    fn render_section<P, E>(
+    fn render_section<C, E>(
         &self,
-        section: Section<P>,
+        section: Section<C>,
         encoder: &mut E,
     ) -> Result<(), E::Error>
     where
-        P: ContentSequence,
+        C: ContentSequence,
         E: Encoder,
     {
         for item in self.iter() {
-            section.render_once(item, encoder)?;
+            section.with(item).render(encoder)?;
         }
 
         Ok(())
@@ -424,17 +431,17 @@ impl<T: Content> Content for &[T] {
     }
 
     #[inline]
-    fn render_section<P, E>(
+    fn render_section<C, E>(
         &self,
-        section: Section<P>,
+        section: Section<C>,
         encoder: &mut E,
     ) -> Result<(), E::Error>
     where
-        P: ContentSequence,
+        C: ContentSequence,
         E: Encoder,
     {
         for item in self.iter() {
-            section.render_once(item, encoder)?;
+            section.with(item).render(encoder)?;
         }
 
         Ok(())
@@ -476,15 +483,15 @@ where
         }
     }
 
-    fn render_field_section<P, E>(
+    fn render_field_section<C, E>(
         &self,
         _: u64,
         name: &str,
-        section: Section<P>,
+        section: Section<C>,
         encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: ContentSequence,
+        C: ContentSequence,
         E: Encoder,
     {
         match self.get(name) {
@@ -493,15 +500,15 @@ where
         }
     }
 
-    fn render_field_inverse<P, E>(
+    fn render_field_inverse<C, E>(
         &self,
         _: u64,
         name: &str,
-        section: Section<P>,
+        section: Section<C>,
         encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: ContentSequence,
+        C: ContentSequence,
         E: Encoder,
     {
         match self.get(name) {
@@ -545,15 +552,15 @@ where
         }
     }
 
-    fn render_field_section<P, E>(
+    fn render_field_section<C, E>(
         &self,
         _: u64,
         name: &str,
-        section: Section<P>,
+        section: Section<C>,
         encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: ContentSequence,
+        C: ContentSequence,
         E: Encoder,
     {
         match self.get(name) {
@@ -562,15 +569,15 @@ where
         }
     }
 
-    fn render_field_inverse<P, E>(
+    fn render_field_inverse<C, E>(
         &self,
         _: u64,
         name: &str,
-        section: Section<P>,
+        section: Section<C>,
         encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: ContentSequence,
+        C: ContentSequence,
         E: Encoder,
     {
         match self.get(name) {
@@ -605,26 +612,26 @@ macro_rules! impl_pointer_types {
                 }
 
                 #[inline]
-                fn render_section<P, E>(
+                fn render_section<C, E>(
                     &self,
-                    section: Section<P>,
+                    section: Section<C>,
                     encoder: &mut E,
                 ) -> Result<(), E::Error>
                 where
-                    P: ContentSequence,
+                    C: ContentSequence,
                     E: Encoder,
                 {
                     self.deref().render_section(section, encoder)
                 }
 
                 #[inline]
-                fn render_inverse<P, E>(
+                fn render_inverse<C, E>(
                     &self,
-                    section: Section<P>,
+                    section: Section<C>,
                     encoder: &mut E,
                 ) -> Result<(), E::Error>
                 where
-                    P: ContentSequence,
+                    C: ContentSequence,
                     E: Encoder,
                 {
                     self.deref().render_inverse(section, encoder)
@@ -651,30 +658,30 @@ macro_rules! impl_pointer_types {
                 }
 
                 #[inline]
-                fn render_field_section<P, E>(
+                fn render_field_section<C, E>(
                     &self,
                     hash: u64,
                     name: &str,
-                    section: Section<P>,
+                    section: Section<C>,
                     encoder: &mut E,
                 ) -> Result<bool, E::Error>
                 where
-                    P: ContentSequence,
+                    C: ContentSequence,
                     E: Encoder,
                 {
                     self.deref().render_field_section(hash, name, section, encoder)
                 }
 
                 #[inline]
-                fn render_field_inverse<P, E>(
+                fn render_field_inverse<C, E>(
                     &self,
                     hash: u64,
                     name: &str,
-                    section: Section<P>,
+                    section: Section<C>,
                     encoder: &mut E,
                 ) -> Result<bool, E::Error>
                 where
-                    P: ContentSequence,
+                    C: ContentSequence,
                     E: Encoder,
                 {
                     self.deref().render_field_inverse(hash, name, section, encoder)

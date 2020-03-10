@@ -64,6 +64,25 @@ fn c_simple_tera(b: &mut Bencher) {
 }
 
 #[bench]
+fn c_simple_tera_from_serialize(b: &mut Bencher) {
+    use tera::{Tera, Context};
+
+    let mut tera = Tera::new("templates/includes/*").unwrap();
+
+    tera.add_raw_template("t1", "<title>{{title}}</title><h1>{{ title }}</h1><div>{{body|safe}}</div>").unwrap();
+
+    let post = Post {
+        title: "Hello, Ramhorns!",
+        body: "This is a really simple test of the rendering!",
+    };
+    // let post = Context::from_serialize(&post).unwrap();
+
+    b.iter(|| {
+        black_box(tera.render("t1", &Context::from_serialize(&post).unwrap()).unwrap())
+    });
+}
+
+#[bench]
 fn d_simple_mustache(b: &mut Bencher) {
     let tpl = mustache::compile_str(SOURCE).unwrap();
 
