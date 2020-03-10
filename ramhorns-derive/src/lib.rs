@@ -51,7 +51,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
             let iter = field.attrs
                 .iter()
                 .filter_map(|attr| attr.path.segments.first())
-                .map(|pair| &pair.into_value().ident);
+                .map(|pair| &pair.ident);
 
             let mut method = None;
 
@@ -65,12 +65,13 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                 .as_ref()
                 .map(|ident| (ident.to_string(), quote!(#ident)))
                 .unwrap_or_else(|| {
-                    use syn::{LitInt, IntSuffix};
+                    use syn::{LitInt};
                     use proc_macro2::Span;
 
-                    let lit = LitInt::new(index as u64, IntSuffix::None, Span::call_site());
+                    let index = index.to_string();
+                    let lit = LitInt::new(&index, Span::call_site());
 
-                    (index.to_string(), quote!(#lit))
+                    (index, quote!(#lit))
                 });
 
             let mut hasher = FnvHasher::default();
@@ -90,7 +91,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
         let method = method.as_ref().unwrap_or(&render_escaped);
 
         quote! {
-            #hash => self.#field.#method(encoder),
+            #hash => self.#field.#method(encoder).map(|_| true),
         }
     });
 
@@ -99,19 +100,19 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
         let method = method.as_ref().unwrap_or(&render_unescaped);
 
         quote! {
-            #hash => self.#field.#method(encoder),
+            #hash => self.#field.#method(encoder).map(|_| true),
         }
     });
 
     let render_field_section = fields.iter().map(|(_, field, hash, _)| {
         quote! {
-            #hash => self.#field.render_section(section, encoder),
+            #hash => self.#field.render_section(section, encoder).map(|_| true),
         }
     });
 
     let render_field_inverse = fields.iter().map(|(_, field, hash, _)| {
         quote! {
-            #hash => self.#field.render_inverse(section, encoder),
+            #hash => self.#field.render_inverse(section, encoder).map(|_| true),
         }
     });
 
@@ -120,47 +121,52 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
     // FIXME: decouple lifetimes from actual generics with trait boundaries
     let tokens = quote! {
         impl#generics ramhorns::Content for #name#generics {
+            #[inline]
             fn capacity_hint(&self, tpl: &ramhorns::Template) -> usize {
                 tpl.capacity_hint() #( + self.#fields.capacity_hint(tpl) )*
             }
 
-            fn render_field_escaped<E>(&self, hash: u64, _: &str, encoder: &mut E) -> Result<(), E::Error>
+            #[inline]
+            fn render_field_escaped<E>(&self, hash: u64, _: &str, encoder: &mut E) -> Result<bool, E::Error>
             where
                 E: ramhorns::encoding::Encoder,
             {
                 match hash {
                     #( #render_field_escaped )*
-                    _ => Ok(())
+                    _ => Ok(false)
                 }
             }
 
-            fn render_field_unescaped<E>(&self, hash: u64, _: &str, encoder: &mut E) -> Result<(), E::Error>
+            #[inline]
+            fn render_field_unescaped<E>(&self, hash: u64, _: &str, encoder: &mut E) -> Result<bool, E::Error>
             where
                 E: ramhorns::encoding::Encoder,
             {
                 match hash {
                     #( #render_field_unescaped )*
-                    _ => Ok(())
+                    _ => Ok(false)
                 }
             }
 
-            fn render_field_section<'section, E>(&self, hash: u64, _: &str, section: ramhorns::Section<'section>, encoder: &mut E) -> Result<(), E::Error>
+            fn render_field_section<P, E>(&self, hash: u64, _: &str, section: ramhorns::Section<P>, encoder: &mut E) -> Result<bool, E::Error>
             where
+                P: ramhorns::traits::ContentSequence,
                 E: ramhorns::encoding::Encoder,
             {
                 match hash {
                     #( #render_field_section )*
-                    _ => Ok(())
+                    _ => Ok(false)
                 }
             }
 
-            fn render_field_inverse<'section, E>(&self, hash: u64, _: &str, section: ramhorns::Section<'section>, encoder: &mut E) -> Result<(), E::Error>
+            fn render_field_inverse<P, E>(&self, hash: u64, _: &str, section: ramhorns::Section<P>, encoder: &mut E) -> Result<bool, E::Error>
             where
+                P: ramhorns::traits::ContentSequence,
                 E: ramhorns::encoding::Encoder,
             {
                 match hash {
                     #( #render_field_inverse )*
-                    _ => Ok(())
+                    _ => Ok(false)
                 }
             }
         }
@@ -168,5 +174,5 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
 
     // panic!("{}", tokens);
 
-    TokenStream::from(tokens).into()
+    TokenStream::from(tokens)
 }

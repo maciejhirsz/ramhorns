@@ -402,6 +402,101 @@ fn can_render_markdown() {
 }
 
 #[test]
+fn can_reference_parent_content() {
+    #[derive(Content)]
+    struct Grandpa<'a> {
+        name: &'a str,
+        son: Father<'a>,
+        hobbies: Vec<Hobby<'a>>,
+    }
+
+    #[derive(Content)]
+    struct Father<'a> {
+        title: &'a str,
+        grandson: Man<'a>,
+    }
+
+    #[derive(Content)]
+    struct Man<'a> {
+        favourite_lang: &'a str,
+    }
+
+    #[derive(Content)]
+    struct Hobby<'a> {
+        hobby: &'a str,
+    }
+
+    let tpl = Template::new(
+        "<h1>Grandpa</h1><p>He's got a son.{{#son}} He's got another son.{{#grandson}}
+        His favourite language is {{favourite_lang}}. People call his father {{title}} and his grandfather {{name}}.
+        Grandpa's hobbies are: <ul>{{#hobbies}}<li>{{hobby}}</li>{{/hobbies}}</ul>{{/grandson}}{{/son}}</p>").unwrap();
+
+    let html = tpl.render(&Grandpa {
+        name: "Jan",
+        son: Father {
+            title: "Sir",
+            grandson: Man {
+                favourite_lang: "Rust",
+            },
+        },
+        hobbies: vec![
+            Hobby {
+                hobby: "watching ducks",
+            },
+            Hobby { hobby: "petang" },
+        ],
+    });
+
+    assert_eq!(html, "<h1>Grandpa</h1><p>He\'s got a son. He\'s got another son.\n        His favourite language is Rust. People call his father Sir and his grandfather Jan.\n        Grandpa\'s hobbies are: <ul><li>watching ducks</li><li>petang</li></ul></p>");
+}
+
+#[test]
+fn can_render_self_referencing_structures() {
+    #[derive(Content)]
+    struct Page<'a> {
+        name: &'a str,
+        subpages: &'a [Page<'a>],
+    }
+
+    let tpl = Template::new("{{name}}: {{#subpages}}{{name}}{{/subpages}}").unwrap();
+
+    let rendered = tpl.render(&Page {
+        name: "Hello",
+        subpages: &[
+            Page { name: "Foo", subpages: &[] },
+            Page { name: "Bar", subpages: &[] },
+        ],
+    });
+
+    assert_eq!(rendered, "Hello: FooBar");
+}
+
+#[test]
+fn can_render_fields_from_parents() {
+    #[derive(Content)]
+    struct Father<'a> {
+        father: &'a str,
+        son: Son<'a>,
+    }
+
+    #[derive(Content)]
+    struct Son<'a> {
+        name: &'a str,
+    }
+
+    let tpl = Template::new("{{#son}}{{name}}'s father is {{father}}.{{/son}}").unwrap();
+
+    let rendered = tpl.render(&Father {
+        father: "Bob",
+        son: Son {
+            name: "Charlie",
+        }
+    });
+
+    assert_eq!(rendered, "Charlie's father is Bob.");
+}
+
+#[test]
 fn simple_partials() {
     let tpl = Template::from_file("templates/layout.html").unwrap();
     let html = tpl.render(&"");

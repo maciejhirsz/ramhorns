@@ -1,6 +1,6 @@
 [package]
 name = "ramhorns"
-version = "0.6.1"
+version = "0.7.0"
 authors = ["Maciej Hirsz <maciej.hirsz@pm.me>"]
 license = "GPL-3.0"
 edition = "2018"
@@ -13,8 +13,8 @@ categories = ["template-engine"]
 
 [dependencies]
 fnv = "1.0"
-pulldown-cmark = "0.4"
-ramhorns-derive = { version = "0.5.0", optional = true }
+pulldown-cmark = "0.7"
+ramhorns-derive = { version = "0.7.0", optional = true }
 
 [features]
 default = ["export_derive"]

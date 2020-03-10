@@ -5,6 +5,5 @@ members = [
     "tests",
 ]
 
-[profile]
-release = { lto = true }
-bench = { lto = true }
+[patch.crates-io]
+ramhorns-derive = { path = "./ramhorns-derive" }

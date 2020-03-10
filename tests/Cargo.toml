@@ -8,9 +8,9 @@ edition = "2018"
 
 [dev-dependencies]
 ramhorns = { path = "../ramhorns" }
-askama = "0.8"
-handlebars = "1.1"
+askama = "0.9"
+handlebars = "3.0.1"
 serde = "1.0"
 serde_derive = "1.0"
 mustache = "0.9"
-wearte = "0.0.1"
+tera = "1.1.0"

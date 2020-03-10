@@ -10,19 +10,31 @@
 use super::{Block, Tag};
 use crate::encoding::Encoder;
 use crate::Content;
+use crate::traits::{ContentSequence};
 
 /// A section of a `Template` that can be rendered individually, usually delimited by
 /// `{{#section}} ... {{/section}}` tags.
-#[derive(Debug, PartialEq, Eq)]
-pub struct Section<'section> {
+#[derive(Clone, Copy)]
+pub struct Section<'section, P: ContentSequence> {
     blocks: &'section [Block<'section>],
+    parents: P,
 }
 
-impl<'section> Section<'section> {
-    pub(crate) const fn new(
-        blocks: &'section [Block<'section>],
-    ) -> Self {
-        Self { blocks }
+impl<'section> Section<'section, ()> {
+    pub(crate) fn new(blocks: &'section [Block<'section>]) -> Self {
+        Self {
+            blocks,
+            parents: (),
+        }
+    }
+}
+
+impl<'section, P> Section<'section, P>
+where
+    P: ContentSequence,
+{
+    fn with_parents(blocks: &'section [Block<'section>], parents: P) -> Self {
+        Self { blocks, parents }
     }
 
     /// Render this section once to the provided `Encoder`. Some `Content`s will call
@@ -32,6 +44,7 @@ impl<'section> Section<'section> {
         C: Content,
         E: Encoder,
     {
+        let content = self.parents.combine(content);
         let mut index = 0;
 
         while let Some(block) = self.blocks.get(index) {
@@ -40,28 +53,28 @@ impl<'section> Section<'section> {
             encoder.write_unescaped(block.html)?;
 
             match block.tag {
-                Tag::Escaped => content.render_field_escaped(block.hash, block.name, encoder)?,
+                Tag::Escaped => {
+                    content.render_field_escaped(block.hash, block.name, encoder)?;
+                }
                 Tag::Unescaped => {
-                    content.render_field_unescaped(block.hash, block.name, encoder)?
+                    content.render_field_unescaped(block.hash, block.name, encoder)?;
                 }
                 Tag::Section(count) => {
                     content.render_field_section(
                         block.hash,
                         block.name,
-                        Section::new(&self.blocks[index..index + count]),
+                        Section::with_parents(&self.blocks[index..index + count], content),
                         encoder,
                     )?;
-
                     index += count;
                 }
                 Tag::Inverse(count) => {
                     content.render_field_inverse(
                         block.hash,
                         block.name,
-                        Section::new(&self.blocks[index..index + count]),
+                        Section::with_parents(&self.blocks[index..index + count], content),
                         encoder,
                     )?;
-
                     index += count;
                 }
                 _ => {}

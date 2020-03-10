@@ -11,7 +11,7 @@
 //!
 //! # Ramhorns
 //!
-//! Experimental [**Mustache**](https://mustache.github.io/) template engine implementation
+//! Fast [**Mustache**](https://mustache.github.io/) template engine implementation
 //! in pure Rust.
 //!
 //! **Ramhorns** loads and processes templates **at runtime**. It comes with a derive macro
@@ -80,6 +80,7 @@ mod cmark;
 mod content;
 mod error;
 mod template;
+pub mod traits;
 
 pub mod encoding;
 
