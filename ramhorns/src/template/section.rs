@@ -11,40 +11,56 @@ use super::{Block, Tag};
 use crate::encoding::Encoder;
 use crate::Content;
 use crate::traits::{ContentSequence};
+use std::ops::Range;
 
 /// A section of a `Template` that can be rendered individually, usually delimited by
 /// `{{#section}} ... {{/section}}` tags.
 #[derive(Clone, Copy)]
-pub struct Section<'section, P: ContentSequence> {
+pub struct Section<'section, Contents: ContentSequence> {
     blocks: &'section [Block<'section>],
-    parents: P,
+    contents: Contents,
 }
 
 impl<'section> Section<'section, ()> {
+    #[inline]
     pub(crate) fn new(blocks: &'section [Block<'section>]) -> Self {
         Self {
             blocks,
-            parents: (),
+            contents: (),
         }
     }
 }
 
-impl<'section, P> Section<'section, P>
+impl<'section, C> Section<'section, C>
 where
-    P: ContentSequence,
+    C: ContentSequence,
 {
-    fn with_parents(blocks: &'section [Block<'section>], parents: P) -> Self {
-        Self { blocks, parents }
+    #[inline]
+    fn slice(self, range: Range<usize>) -> Self {
+        Self {
+            blocks: &self.blocks[range],
+            contents: self.contents,
+        }
     }
 
-    /// Render this section once to the provided `Encoder`. Some `Content`s will call
-    /// this method multiple times (to render a list of elements).
-    pub fn render_once<C, E>(&self, content: &C, encoder: &mut E) -> Result<(), E::Error>
+    /// Attach a `Content` to this section. This will keep track of a stack up to
+    /// 4 `Content`s deep, cycling on overflow.
+    #[inline]
+    pub fn with<X>(self, content: &X) -> Section<'section, (C::I, C::J, C::K, &X)>
     where
-        C: Content,
+        X: Content,
+    {
+        Section {
+            blocks: self.blocks,
+            contents: self.contents.combine(content),
+        }
+    }
+
+    /// Render this section once to the provided `Encoder`.
+    pub fn render<E>(&self, encoder: &mut E) -> Result<(), E::Error>
+    where
         E: Encoder,
     {
-        let content = self.parents.combine(content);
         let mut index = 0;
 
         while let Some(block) = self.blocks.get(index) {
@@ -54,25 +70,25 @@ where
 
             match block.tag {
                 Tag::Escaped => {
-                    content.render_field_escaped(block.hash, block.name, encoder)?;
+                    self.contents.render_field_escaped(block.hash, block.name, encoder)?;
                 }
                 Tag::Unescaped => {
-                    content.render_field_unescaped(block.hash, block.name, encoder)?;
+                    self.contents.render_field_unescaped(block.hash, block.name, encoder)?;
                 }
                 Tag::Section(count) => {
-                    content.render_field_section(
+                    self.contents.render_field_section(
                         block.hash,
                         block.name,
-                        Section::with_parents(&self.blocks[index..index + count], content),
+                        self.slice(index..index + count),
                         encoder,
                     )?;
                     index += count;
                 }
                 Tag::Inverse(count) => {
-                    content.render_field_inverse(
+                    self.contents.render_field_inverse(
                         block.hash,
                         block.name,
-                        Section::with_parents(&self.blocks[index..index + count], content),
+                        self.slice(index..index + count),
                         encoder,
                     )?;
                     index += count;
