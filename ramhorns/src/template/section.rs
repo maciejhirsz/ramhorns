@@ -39,11 +39,10 @@ where
 
     /// Render this section once to the provided `Encoder`. Some `Content`s will call
     /// this method multiple times (to render a list of elements).
-    pub fn render_once<'c, C, E>(&self, content: &'c C, encoder: &mut E) -> Result<(), E::Error>
+    pub fn render_once<C, E>(&self, content: &C, encoder: &mut E) -> Result<(), E::Error>
     where
-        C: Content + 'section,
+        C: Content,
         E: Encoder,
-        // P: Combine<&'c C>,
     {
         let content = self.parents.combine(content);
         let mut index = 0;

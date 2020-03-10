@@ -44,7 +44,7 @@ pub trait Renderable: Sized + Copy {
         _encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: Renderable + 'section,
+        P: Renderable,
         E: Encoder,
     {
         Ok(false)
@@ -60,7 +60,7 @@ pub trait Renderable: Sized + Copy {
         _encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: Renderable + 'section,
+        P: Renderable,
         E: Encoder,
     {
         Ok(false)
@@ -134,7 +134,7 @@ where
         encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: Renderable + 'section,
+        P: Renderable,
         E: Encoder,
     {
         match self.3.render_field_section(hash, name, section, encoder) {
@@ -157,7 +157,7 @@ where
         encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: Renderable + 'section,
+        P: Renderable,
         E: Encoder,
     {
         match self.3.render_field_inverse(hash, name, section, encoder) {
