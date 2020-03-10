@@ -25,7 +25,7 @@ pub trait Combine {
     type K: Content + Copy;
 
     /// Combines current tuple with a new element.
-    fn combine<X: Content + Copy>(self, other: X) -> (Self::I, Self::J, Self::K, X);
+    fn combine<X: Content>(self, other: &X) -> (Self::I, Self::J, Self::K, &X);
 }
 
 /// Helper trait that re-exposes `render_field_x` methods of a `Content` trait,
@@ -35,6 +35,7 @@ pub trait ContentSequence: Combine + Sized + Copy {
     ///
     /// This will escape HTML characters, eg: `<` will become `&lt;`.
     /// If successful, returns `true` if the field exists in this content, otherwise `false`.
+    #[inline]
     fn render_field_escaped<E: Encoder>(
         &self,
         _hash: u64,
@@ -48,6 +49,7 @@ pub trait ContentSequence: Combine + Sized + Copy {
     ///
     /// This doesn't perform any escaping at all.
     /// If successful, returns `true` if the field exists in this content, otherwise `false`.
+    #[inline]
     fn render_field_unescaped<E: Encoder>(
         &self,
         _hash: u64,
@@ -59,6 +61,7 @@ pub trait ContentSequence: Combine + Sized + Copy {
 
     /// Render a field by the hash **or** string of its name, as a section.
     /// If successful, returns `true` if the field exists in this content, otherwise `false`.
+    #[inline]
     fn render_field_section<'section, P, E>(
         &self,
         _hash: u64,
@@ -75,6 +78,7 @@ pub trait ContentSequence: Combine + Sized + Copy {
 
     /// Render a field, by the hash of **or** string its name, as an inverse section.
     /// If successful, returns `true` if the field exists in this content, otherwise `false`.
+    #[inline]
     fn render_field_inverse<'section, P, E>(
         &self,
         _hash: u64,
@@ -95,35 +99,37 @@ impl Combine for () {
     type J = ();
     type K = ();
 
-    fn combine<X: Content + Copy>(self, other: X) -> ((), (), (), X) {
+    #[inline]
+    fn combine<X: Content>(self, other: &X) -> ((), (), (), &X) {
         ((), (), (), other)
     }
 }
 
 impl ContentSequence for () {}
 
-impl<A, B, C, D> Combine for (A, B, C, D)
+impl<'tup, A, B, C, D> Combine for (A, B, C, &'tup D)
 where
     A: Content + Copy,
     B: Content + Copy,
     C: Content + Copy,
-    D: Content + Copy,
+    D: Content,
 {
     type I = B;
     type J = C;
-    type K = D;
+    type K = &'tup D;
 
-    fn combine<X: Content + Copy>(self, other: X) -> (B, C, D, X) {
+    #[inline]
+    fn combine<X: Content>(self, other: &X) -> (B, C, &'tup D, &X) {
         (self.1, self.2, self.3, other)
     }
 }
 
-impl<A, B, C, D> ContentSequence for (A, B, C, D)
+impl<A, B, C, D> ContentSequence for (A, B, C, &D)
 where
     A: Content + Copy,
     B: Content + Copy,
     C: Content + Copy,
-    D: Content + Copy,
+    D: Content,
 {
     fn render_field_escaped<E: Encoder>(
         &self,

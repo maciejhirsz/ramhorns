@@ -21,12 +21,14 @@ use std::ops::Deref;
 /// cases the `#[derive(Content)]` attribute above your types should be sufficient.
 pub trait Content: Sized {
     /// Marks whether this content is truthy. Used when attempting to render a section.
+    #[inline]
     fn is_truthy(&self) -> bool {
         true
     }
 
     /// How much capacity is _likely_ required for all the data in this `Content`
     /// for a given `Template`.
+    #[inline]
     fn capacity_hint(&self, _tpl: &Template) -> usize {
         0
     }
@@ -34,6 +36,7 @@ pub trait Content: Sized {
     /// Renders self as a variable to the encoder.
     ///
     /// This will escape HTML characters, eg: `<` will become `&lt;`.
+    #[inline]
     fn render_escaped<E: Encoder>(&self, _encoder: &mut E) -> Result<(), E::Error> {
         Ok(())
     }
@@ -41,6 +44,7 @@ pub trait Content: Sized {
     /// Renders self as a variable to the encoder.
     ///
     /// This doesn't perform any escaping at all.
+    #[inline]
     fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         self.render_escaped(encoder)
     }
@@ -48,6 +52,7 @@ pub trait Content: Sized {
     /// Renders self as a variable to the encoder with CommonMark processing.
     ///
     /// The generated HTML is never escaped.
+    #[inline]
     fn render_cmark<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         self.render_escaped(encoder)
     }
@@ -90,6 +95,7 @@ pub trait Content: Sized {
     ///
     /// This will escape HTML characters, eg: `<` will become `&lt;`.
     /// If successful, returns `true` if the field exists in this content, otherwise `false`.
+    #[inline]
     fn render_field_escaped<E: Encoder>(
         &self,
         _hash: u64,
@@ -103,6 +109,7 @@ pub trait Content: Sized {
     ///
     /// This doesn't perform any escaping at all.
     /// If successful, returns `true` if the field exists in this content, otherwise `false`.
+    #[inline]
     fn render_field_unescaped<E: Encoder>(
         &self,
         _hash: u64,
@@ -114,6 +121,7 @@ pub trait Content: Sized {
 
     /// Render a field by the hash **or** string of its name, as a section.
     /// If successful, returns `true` if the field exists in this content, otherwise `false`.
+    #[inline]
     fn render_field_section<P, E>(
         &self,
         _hash: u64,
@@ -130,6 +138,7 @@ pub trait Content: Sized {
 
     /// Render a field, by the hash of **or** string its name, as an inverse section.
     /// If successful, returns `true` if the field exists in this content, otherwise `false`.
+    #[inline]
     fn render_field_inverse<P, E>(
         &self,
         _hash: u64,
@@ -148,58 +157,71 @@ pub trait Content: Sized {
 impl Content for () {}
 
 impl Content for &str {
+    #[inline]
     fn is_truthy(&self) -> bool {
         !self.is_empty()
     }
 
+    #[inline]
     fn capacity_hint(&self, _tpl: &Template) -> usize {
         self.len()
     }
 
+    #[inline]
     fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         encoder.write_escaped(self)
     }
 
+    #[inline]
     fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         encoder.write_unescaped(self)
     }
 
+    #[inline]
     fn render_cmark<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         crate::cmark::encode(self, encoder)
     }
 }
 
 impl Content for String {
+    #[inline]
     fn is_truthy(&self) -> bool {
         !self.is_empty()
     }
 
+    #[inline]
     fn capacity_hint(&self, _tpl: &Template) -> usize {
         self.len()
     }
 
+    #[inline]
     fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         encoder.write_escaped(self)
     }
 
+    #[inline]
     fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         encoder.write_unescaped(self)
     }
 
+    #[inline]
     fn render_cmark<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         crate::cmark::encode(self, encoder)
     }
 }
 
 impl Content for bool {
+    #[inline]
     fn is_truthy(&self) -> bool {
         *self
     }
 
+    #[inline]
     fn capacity_hint(&self, _tpl: &Template) -> usize {
         5
     }
 
+    #[inline]
     fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         // Nothing to escape here
         encoder.write_unescaped(if *self { "true" } else { "false" })
@@ -210,14 +232,17 @@ macro_rules! impl_number_types {
     ($( $ty:ty ),*) => {
         $(
             impl Content for $ty {
+                #[inline]
                 fn is_truthy(&self) -> bool {
                     *self != 0 as $ty
                 }
 
+                #[inline]
                 fn capacity_hint(&self, _tpl: &Template) -> usize {
                     5
                 }
 
+                #[inline]
                 fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error>
                 {
                     // Nothing to escape here
@@ -231,15 +256,18 @@ macro_rules! impl_number_types {
 impl_number_types!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
 
 impl Content for f32 {
+    #[inline]
     fn is_truthy(&self) -> bool {
         // Floats shoudn't be directly compared to 0
         self.abs() > std::f32::EPSILON
     }
 
+    #[inline]
     fn capacity_hint(&self, _tpl: &Template) -> usize {
         5
     }
 
+    #[inline]
     fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         // Nothing to escape here
         encoder.format_unescaped(self)
@@ -247,15 +275,18 @@ impl Content for f32 {
 }
 
 impl Content for f64 {
+    #[inline]
     fn is_truthy(&self) -> bool {
         // Floats shoudn't be directly compared to 0
         self.abs() > std::f64::EPSILON
     }
 
+    #[inline]
     fn capacity_hint(&self, _tpl: &Template) -> usize {
         5
     }
 
+    #[inline]
     fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         // Nothing to escape here
         encoder.format_unescaped(self)
@@ -263,10 +294,12 @@ impl Content for f64 {
 }
 
 impl<T: Content> Content for Option<T> {
+    #[inline]
     fn is_truthy(&self) -> bool {
         self.is_some()
     }
 
+    #[inline]
     fn capacity_hint(&self, tpl: &Template) -> usize {
         match self {
             Some(inner) => inner.capacity_hint(tpl),
@@ -274,6 +307,7 @@ impl<T: Content> Content for Option<T> {
         }
     }
 
+    #[inline]
     fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         if let Some(inner) = self {
             inner.render_escaped(encoder)?;
@@ -282,6 +316,7 @@ impl<T: Content> Content for Option<T> {
         Ok(())
     }
 
+    #[inline]
     fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         if let Some(ref inner) = self {
             inner.render_unescaped(encoder)?;
@@ -290,6 +325,7 @@ impl<T: Content> Content for Option<T> {
         Ok(())
     }
 
+    #[inline]
     fn render_section<P, E>(
         &self,
         section: Section<P>,
@@ -308,10 +344,12 @@ impl<T: Content> Content for Option<T> {
 }
 
 impl<T: Content, U> Content for Result<T, U> {
+    #[inline]
     fn is_truthy(&self) -> bool {
         self.is_ok()
     }
 
+    #[inline]
     fn capacity_hint(&self, tpl: &Template) -> usize {
         match self {
             Ok(inner) => inner.capacity_hint(tpl),
@@ -319,6 +357,7 @@ impl<T: Content, U> Content for Result<T, U> {
         }
     }
 
+    #[inline]
     fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         if let Ok(inner) = self {
             inner.render_escaped(encoder)?;
@@ -327,6 +366,7 @@ impl<T: Content, U> Content for Result<T, U> {
         Ok(())
     }
 
+    #[inline]
     fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         if let Ok(ref inner) = self {
             inner.render_unescaped(encoder)?;
@@ -335,6 +375,7 @@ impl<T: Content, U> Content for Result<T, U> {
         Ok(())
     }
 
+    #[inline]
     fn render_section<P, E>(
         &self,
         section: Section<P>,
@@ -353,10 +394,12 @@ impl<T: Content, U> Content for Result<T, U> {
 }
 
 impl<T: Content> Content for Vec<T> {
+    #[inline]
     fn is_truthy(&self) -> bool {
         !self.is_empty()
     }
 
+    #[inline]
     fn render_section<P, E>(
         &self,
         section: Section<P>,
@@ -375,10 +418,12 @@ impl<T: Content> Content for Vec<T> {
 }
 
 impl<T: Content> Content for &[T] {
+    #[inline]
     fn is_truthy(&self) -> bool {
         !self.is_empty()
     }
 
+    #[inline]
     fn render_section<P, E>(
         &self,
         section: Section<P>,
