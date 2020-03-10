@@ -6,7 +6,7 @@
 [![Crates.io version shield](https://img.shields.io/crates/v/ramhorns.svg)](https://crates.io/crates/ramhorns)
 [![Crates.io license shield](https://img.shields.io/crates/l/ramhorns.svg)](https://crates.io/crates/ramhorns)
 
-Experimental [**Mustache**](https://mustache.github.io/) template engine implementation
+Fastest [**Mustache**](https://mustache.github.io/) template engine implementation
 in pure Rust.
 
 **Ramhorns** loads and processes templates **at runtime**. It comes with a derive macro
@@ -82,25 +82,24 @@ assert_eq!(rendered, "<h1>My Awesome Blog!</h1>\
 + Unescaped printing with `{{{tripple-brace}}}` or `{{&ampersant}}`.
 + Rendering sections `{{#foo}} ... {{/foo}}`.
 + Rendering inverse sections `{{^foo}} ... {{/foo}}`.
++ Rendering partials `{{>file.html}}`.
 + Zero-copy [CommonMark](https://commonmark.org/) rendering from fields marked with `#[md]`.
 
 ### Benches
 
 ```
-running 5 tests
-test a_simple_ramhorns   ... bench:          64 ns/iter (+/- 4)
-test b_simple_wearte     ... bench:          72 ns/iter (+/- 24)
-test c_simple_askama     ... bench:         181 ns/iter (+/- 9)
-test d_simple_mustache   ... bench:         736 ns/iter (+/- 133)
-test e_simple_handlebars ... bench:       2,889 ns/iter (+/- 118)
+test a_simple_ramhorns      ... bench:          84 ns/iter (+/- 2)
+test b_simple_askama        ... bench:         193 ns/iter (+/- 5)
+test c_simple_tera          ... bench:         448 ns/iter (+/- 13)
+test d_simple_mustache      ... bench:         713 ns/iter (+/- 33)
+test e_simple_handlebars    ... bench:       1,015 ns/iter (+/- 33)
 ```
 
-Worth noting here is that both [**Askama**](https://github.com/djc/askama) and
-[**wearte**](https://github.com/dgriffen/wearte) (a fork of a fork of **Askama**)
-are processing templates at compile time and generate static rust code for rendering.
-This is great for performance, but it also means you can't swap out templates without
-recompiling your Rust binaries. In some cases, like for a static site generator, this
-is unfortunately a deal breaker.
+Worth noting here is that [**Askama**](https://github.com/djc/askama) is processing
+templates at compile time and generate static rust code for rendering. This is great
+for performance, but it also means you can't swap out templates without recompiling
+your Rust binaries. In some cases, like for a static site generator, this is
+unfortunately a deal breaker.
 
 The [**Mustache** crate](https://github.com/nickel-org/rust-mustache) is the closest
 thing to **Ramhorns** in design and feature set.

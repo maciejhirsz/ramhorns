@@ -31,28 +31,7 @@ fn a_simple_ramhorns(b: &mut Bencher) {
 }
 
 #[bench]
-fn b_simple_wearte(b: &mut Bencher) {
-    use wearte::Template;
-
-    #[derive(Serialize, Template)]
-    #[template(source = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{{body}}}</div>", ext = "html")]
-    struct Post<'a> {
-        title: &'a str,
-        body: &'a str,
-    }
-
-    let post = Post {
-        title: "Hello, Ramhorns!",
-        body: "This is a really simple test of the rendering!",
-    };
-
-    b.iter(|| {
-        black_box(post.call())
-    });
-}
-
-#[bench]
-fn c_simple_askama(b: &mut Bencher) {
+fn b_simple_askama(b: &mut Bencher) {
     use askama::Template;
 
     let post = Post {
@@ -62,6 +41,25 @@ fn c_simple_askama(b: &mut Bencher) {
 
     b.iter(|| {
         black_box(post.render())
+    });
+}
+
+#[bench]
+fn c_simple_tera(b: &mut Bencher) {
+    use tera::{Tera, Context};
+
+    let mut tera = Tera::new("templates/includes/*").unwrap();
+
+    tera.add_raw_template("t1", "<title>{{title}}</title><h1>{{ title }}</h1><div>{{body|safe}}</div>").unwrap();
+
+    let post = Post {
+        title: "Hello, Ramhorns!",
+        body: "This is a really simple test of the rendering!",
+    };
+    let post = Context::from_serialize(&post).unwrap();
+
+    b.iter(|| {
+        black_box(tera.render("t1", &post).unwrap())
     });
 }
 
@@ -113,30 +111,7 @@ fn pa_partials_ramhorns(b: &mut Bencher) {
 }
 
 #[bench]
-fn pb_partials_wearte(b: &mut Bencher) {
-    use wearte::Template;
-
-    #[derive(Serialize, Template)]
-    #[template(path = "basic.html")]
-    struct Post<'a> {
-        title: &'a str,
-        body: &'a str,
-    }
-
-    let post = Post {
-        title: "Hello, Ramhorns!",
-        body: "This is a really simple test of the rendering!",
-    };
-
-    println!("{:?}", post.call());
-
-    b.iter(|| {
-        black_box(post.call())
-    });
-}
-
-#[bench]
-fn pc_partials_askama(b: &mut Bencher) {
+fn pb_partials_askama(b: &mut Bencher) {
     use askama::Template;
 
     #[derive(Template)]
@@ -157,7 +132,7 @@ fn pc_partials_askama(b: &mut Bencher) {
 }
 
 #[bench]
-fn pd_partials_mustache(b: &mut Bencher) {
+fn pc_partials_mustache(b: &mut Bencher) {
     let tpl = mustache::compile_path("templates/bench.moustache").unwrap();
 
     let post = Post {
@@ -171,7 +146,7 @@ fn pd_partials_mustache(b: &mut Bencher) {
 }
 
 #[bench]
-fn pe_partials_handlebars(b: &mut Bencher) {
+fn pd_partials_handlebars(b: &mut Bencher) {
     use handlebars::Handlebars;
 
     let mut handlebars = Handlebars::new();

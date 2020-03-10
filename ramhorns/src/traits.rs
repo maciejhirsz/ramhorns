@@ -131,6 +131,7 @@ where
     C: Content + Copy,
     D: Content,
 {
+    #[inline]
     fn render_field_escaped<E: Encoder>(
         &self,
         hash: u64,
@@ -149,6 +150,7 @@ where
         }
     }
 
+    #[inline]
     fn render_field_unescaped<E: Encoder>(
         &self,
         hash: u64,
@@ -167,6 +169,7 @@ where
         }
     }
 
+    #[inline]
     fn render_field_section<'section, P, E>(
         &self,
         hash: u64,
@@ -190,6 +193,7 @@ where
         }
     }
 
+    #[inline]
     fn render_field_inverse<'section, P, E>(
         &self,
         hash: u64,

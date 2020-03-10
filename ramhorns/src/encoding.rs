@@ -66,6 +66,7 @@ impl<'a> EscapingStringEncoder<'a> {
 
 /// Provide a `fmt::Write` interface, so we can use `write!` macro.
 impl<'a> fmt::Write for EscapingStringEncoder<'a> {
+    #[inline]
     fn write_str(&mut self, part: &str) -> fmt::Result {
         self.write_escaped(part);
 
@@ -80,6 +81,7 @@ pub(crate) struct EscapingIOEncoder<W: io::Write> {
 }
 
 impl<W: io::Write> EscapingIOEncoder<W> {
+    #[inline]
     pub fn new(inner: W) -> Self {
         Self {
             inner
@@ -113,14 +115,17 @@ impl<W: io::Write> EscapingIOEncoder<W> {
 // Additionally we implement `io::Write` for it directly. This allows us to use
 // the `write!` macro for formatting without allocations.
 impl<W: io::Write> io::Write for EscapingIOEncoder<W> {
+    #[inline]
     fn write(&mut self, part: &[u8]) -> io::Result<usize> {
         self.write_escaped_bytes(part).map(|()| part.len())
     }
 
+    #[inline]
     fn write_all(&mut self, part: &[u8]) -> io::Result<()> {
         self.write_escaped_bytes(part)
     }
 
+    #[inline]
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
@@ -129,22 +134,27 @@ impl<W: io::Write> io::Write for EscapingIOEncoder<W> {
 impl<W: io::Write> Encoder for EscapingIOEncoder<W> {
     type Error = io::Error;
 
+    #[inline]
     fn write_unescaped(&mut self, part: &str) -> io::Result<()> {
         self.inner.write_all(part.as_bytes())
     }
 
+    #[inline]
     fn write_escaped(&mut self, part: &str) -> io::Result<()> {
         self.write_escaped_bytes(part.as_bytes())
     }
 
+    #[inline]
     fn write_html<'a, I: Iterator<Item = Event<'a>>>(&mut self, iter: I) -> io::Result<()> {
         html::write_html(&mut self.inner, iter)
     }
 
+    #[inline]
     fn format_unescaped<D: fmt::Display>(&mut self, display: D) -> Result<(), Self::Error> {
         write!(self.inner, "{}", display)
     }
 
+    #[inline]
     fn format_escaped<D: fmt::Display>(&mut self, display: D) -> Result<(), Self::Error> {
         use io::Write;
 
@@ -152,28 +162,35 @@ impl<W: io::Write> Encoder for EscapingIOEncoder<W> {
     }
 }
 
+/// Error type for String, impossible to instantiate
+pub enum NeverError {}
+
 impl Encoder for String {
     // Change this to `!` once stabilized.
-    type Error = ();
+    type Error = NeverError;
 
+    #[inline]
     fn write_unescaped(&mut self, part: &str) -> Result<(), Self::Error> {
         self.push_str(part);
 
         Ok(())
     }
 
+    #[inline]
     fn write_escaped(&mut self, part: &str) -> Result<(), Self::Error> {
         EscapingStringEncoder(self).write_escaped(part);
 
         Ok(())
     }
 
+    #[inline]
     fn write_html<'a, I: Iterator<Item = Event<'a>>>(&mut self, iter: I) -> Result<(), Self::Error> {
         html::push_html(self, iter);
 
         Ok(())
     }
 
+    #[inline]
     fn format_unescaped<D: fmt::Display>(&mut self, display: D) -> Result<(), Self::Error> {
         use std::fmt::Write;
 
@@ -183,6 +200,7 @@ impl Encoder for String {
         Ok(())
     }
 
+    #[inline]
     fn format_escaped<D: fmt::Display>(&mut self, display: D) -> Result<(), Self::Error> {
         use std::fmt::Write;
 

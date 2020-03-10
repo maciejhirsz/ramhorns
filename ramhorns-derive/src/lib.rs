@@ -51,7 +51,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
             let iter = field.attrs
                 .iter()
                 .filter_map(|attr| attr.path.segments.first())
-                .map(|pair| &pair.into_value().ident);
+                .map(|pair| &pair.ident);
 
             let mut method = None;
 
@@ -65,12 +65,13 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                 .as_ref()
                 .map(|ident| (ident.to_string(), quote!(#ident)))
                 .unwrap_or_else(|| {
-                    use syn::{LitInt, IntSuffix};
+                    use syn::{LitInt};
                     use proc_macro2::Span;
 
-                    let lit = LitInt::new(index as u64, IntSuffix::None, Span::call_site());
+                    let index = index.to_string();
+                    let lit = LitInt::new(&index, Span::call_site());
 
-                    (index.to_string(), quote!(#lit))
+                    (index, quote!(#lit))
                 });
 
             let mut hasher = FnvHasher::default();
@@ -120,6 +121,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
     // FIXME: decouple lifetimes from actual generics with trait boundaries
     let tokens = quote! {
         impl#generics ramhorns::Content for #name#generics {
+            #[inline]
             fn capacity_hint(&self, tpl: &ramhorns::Template) -> usize {
                 tpl.capacity_hint() #( + self.#fields.capacity_hint(tpl) )*
             }
