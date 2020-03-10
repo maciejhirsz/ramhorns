@@ -144,9 +144,9 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn render_field_section<'section, P, E>(&self, hash: u64, _: &str, section: ramhorns::Section<'section, P>, encoder: &mut E) -> Result<bool, E::Error>
+            fn render_field_section<P, E>(&self, hash: u64, _: &str, section: ramhorns::Section<P>, encoder: &mut E) -> Result<bool, E::Error>
             where
-            	P: ramhorns::traits::Renderable,
+                P: ramhorns::traits::ContentSequence,
                 E: ramhorns::encoding::Encoder,
             {
                 match hash {
@@ -155,9 +155,9 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn render_field_inverse<'section, P, E>(&self, hash: u64, _: &str, section: ramhorns::Section<'section, P>, encoder: &mut E) -> Result<bool, E::Error>
+            fn render_field_inverse<P, E>(&self, hash: u64, _: &str, section: ramhorns::Section<P>, encoder: &mut E) -> Result<bool, E::Error>
             where
-            	P: ramhorns::traits::Renderable,
+                P: ramhorns::traits::ContentSequence,
                 E: ramhorns::encoding::Encoder,
             {
                 match hash {

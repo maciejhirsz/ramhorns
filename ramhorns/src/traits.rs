@@ -1,13 +1,36 @@
+//! This module contains helper traits that are used internally to manage
+//! sequences of types implementing the `Content` trait, allowing us to
+//! statically manage parent section lookups without doing extra work on
+//! runtime.
+
 use crate::template::Section;
 use crate::encoding::Encoder;
 use crate::Content;
 
-/// Another helper trait that wraps lists of Contents
-pub trait Renderable: Sized + Copy {
+/// Helper trait used to rotate a queue of parent `Content`s. Think of this as of a
+/// rotating buffer such that:
+///
+/// ```text
+/// (A, B, C, D).combine(X) -> (B, C, D, X)
+/// ```
+///
+/// This allows us to keep track of up to 3 parent contexts. The constraint is implemented
+/// so that self-referencing `Content`s don't blow up the stack on compilation.
+pub trait Combine {
+    /// First type for the result tuple
     type I: Content + Copy;
+    /// Second type for the result tuple
     type J: Content + Copy;
+    /// Third type for the result tuple
     type K: Content + Copy;
 
+    /// Combines current tuple with a new element.
+    fn combine<X: Content + Copy>(self, other: X) -> (Self::I, Self::J, Self::K, X);
+}
+
+/// Helper trait that re-exposes `render_field_x` methods of a `Content` trait,
+/// calling those methods internally on all `Content`s contained within `Self`.
+pub trait ContentSequence: Combine + Sized + Copy {
     /// Render a field by the hash **or** string of its name.
     ///
     /// This will escape HTML characters, eg: `<` will become `&lt;`.
@@ -44,7 +67,7 @@ pub trait Renderable: Sized + Copy {
         _encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: Renderable,
+        P: ContentSequence,
         E: Encoder,
     {
         Ok(false)
@@ -60,16 +83,14 @@ pub trait Renderable: Sized + Copy {
         _encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: Renderable,
+        P: ContentSequence,
         E: Encoder,
     {
         Ok(false)
     }
-
-    fn combine<X: Content + Copy>(self, other: X) -> (Self::I, Self::J, Self::K, X);
 }
 
-impl Renderable for () {
+impl Combine for () {
     type I = ();
     type J = ();
     type K = ();
@@ -79,7 +100,9 @@ impl Renderable for () {
     }
 }
 
-impl<A, B, C, D> Renderable for (A, B, C, D)
+impl ContentSequence for () {}
+
+impl<A, B, C, D> Combine for (A, B, C, D)
 where
     A: Content + Copy,
     B: Content + Copy,
@@ -90,6 +113,18 @@ where
     type J = C;
     type K = D;
 
+    fn combine<X: Content + Copy>(self, other: X) -> (B, C, D, X) {
+        (self.1, self.2, self.3, other)
+    }
+}
+
+impl<A, B, C, D> ContentSequence for (A, B, C, D)
+where
+    A: Content + Copy,
+    B: Content + Copy,
+    C: Content + Copy,
+    D: Content + Copy,
+{
     fn render_field_escaped<E: Encoder>(
         &self,
         hash: u64,
@@ -134,7 +169,7 @@ where
         encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: Renderable,
+        P: ContentSequence,
         E: Encoder,
     {
         match self.3.render_field_section(hash, name, section, encoder) {
@@ -157,7 +192,7 @@ where
         encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: Renderable,
+        P: ContentSequence,
         E: Encoder,
     {
         match self.3.render_field_inverse(hash, name, section, encoder) {
@@ -170,9 +205,5 @@ where
             },
             res => res,
         }
-    }
-
-    fn combine<X: Content + Copy>(self, other: X) -> (B, C, D, X) {
-        (self.1, self.2, self.3, other)
     }
 }

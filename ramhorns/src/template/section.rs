@@ -10,12 +10,12 @@
 use super::{Block, Tag};
 use crate::encoding::Encoder;
 use crate::Content;
-use crate::traits::{Renderable};
+use crate::traits::{ContentSequence};
 
 /// A section of a `Template` that can be rendered individually, usually delimited by
 /// `{{#section}} ... {{/section}}` tags.
 #[derive(Clone, Copy)]
-pub struct Section<'section, P: Renderable> {
+pub struct Section<'section, P: ContentSequence> {
     blocks: &'section [Block<'section>],
     parents: P,
 }
@@ -31,7 +31,7 @@ impl<'section> Section<'section, ()> {
 
 impl<'section, P> Section<'section, P>
 where
-    P: Renderable,
+    P: ContentSequence,
 {
     fn with_parents(blocks: &'section [Block<'section>], parents: P) -> Self {
         Self { blocks, parents }
