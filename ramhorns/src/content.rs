@@ -69,7 +69,7 @@ pub trait Content {
         E: Encoder,
     {
         if self.is_truthy() {
-            section.with(self).render(encoder)
+            section.render(encoder)
         } else {
             Ok(())
         }
@@ -87,7 +87,7 @@ pub trait Content {
         E: Encoder,
     {
         if !self.is_truthy() {
-            section.with(self).render(encoder)
+            section.render(encoder)
         } else {
             Ok(())
         }
@@ -458,6 +458,42 @@ where
         !self.is_empty()
     }
 
+    /// Render a section with self.
+    #[inline]
+    fn render_section<C, E>(
+        &self,
+        section: Section<C>,
+        encoder: &mut E,
+    ) -> Result<(), E::Error>
+    where
+        C: ContentSequence,
+        E: Encoder,
+    {
+        if self.is_truthy() {
+            section.with(self).render(encoder)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Render a section with self.
+    #[inline]
+    fn render_inverse<C, E>(
+        &self,
+        section: Section<C>,
+        encoder: &mut E,
+    ) -> Result<(), E::Error>
+    where
+        C: ContentSequence,
+        E: Encoder,
+    {
+        if !self.is_truthy() {
+            section.with(self).render(encoder)
+        } else {
+            Ok(())
+        }
+    }
+
     fn render_field_escaped<E>(&self, _: u64, name: &str, encoder: &mut E) -> Result<bool, E::Error>
     where
         E: Encoder,
@@ -525,6 +561,42 @@ where
 {
     fn is_truthy(&self) -> bool {
         !self.is_empty()
+    }
+
+    /// Render a section with self.
+    #[inline]
+    fn render_section<C, E>(
+        &self,
+        section: Section<C>,
+        encoder: &mut E,
+    ) -> Result<(), E::Error>
+    where
+        C: ContentSequence,
+        E: Encoder,
+    {
+        if self.is_truthy() {
+            section.with(self).render(encoder)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Render a section with self.
+    #[inline]
+    fn render_inverse<C, E>(
+        &self,
+        section: Section<C>,
+        encoder: &mut E,
+    ) -> Result<(), E::Error>
+    where
+        C: ContentSequence,
+        E: Encoder,
+    {
+        if !self.is_truthy() {
+            section.with(self).render(encoder)
+        } else {
+            Ok(())
+        }
     }
 
     fn render_field_escaped<E>(&self, _: u64, name: &str, encoder: &mut E) -> Result<bool, E::Error>

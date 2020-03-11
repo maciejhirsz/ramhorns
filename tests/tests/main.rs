@@ -463,8 +463,14 @@ fn can_render_self_referencing_structures() {
     let rendered = tpl.render(&Page {
         name: "Hello",
         subpages: &[
-            Page { name: "Foo", subpages: &[] },
-            Page { name: "Bar", subpages: &[] },
+            Page {
+                name: "Foo",
+                subpages: &[],
+            },
+            Page {
+                name: "Bar",
+                subpages: &[],
+            },
         ],
     });
 
@@ -488,12 +494,43 @@ fn can_render_fields_from_parents() {
 
     let rendered = tpl.render(&Father {
         father: "Bob",
-        son: Son {
-            name: "Charlie",
-        }
+        son: Son { name: "Charlie" },
     });
 
     assert_eq!(rendered, "Charlie's father is Bob.");
+}
+
+#[test]
+fn struct_with_many_types() {
+    #[derive(Content)]
+    struct Complicated<'a> {
+        name: &'a str,
+        size: u8,
+        position: i16,
+        tags: Vec<&'a str>,
+        nickname: Option<&'a str>,
+        children: &'a [Complicated<'a>],
+    }
+
+    let tpl = Template::new("This requires nothing but {{name}}.").unwrap();
+
+    let rendered = tpl.render(&Complicated {
+        name: "Name",
+        size: 1,
+        position: 2,
+        tags: vec!["tag1", "tag2"],
+        nickname: Some("nick"),
+        children: &[Complicated {
+            name: "Child",
+            size: 0,
+            position: 3,
+            tags: Vec::with_capacity(0),
+            nickname: None,
+            children: &[],
+        }],
+    });
+
+    assert_eq!(rendered, "This requires nothing but Name.");
 }
 
 #[test]
