@@ -48,7 +48,7 @@ where
     #[inline]
     pub fn with<X>(self, content: &X) -> Section<'section, (C::I, C::J, C::K, &X)>
     where
-        X: Content,
+        X: Content + ?Sized,
     {
         Section {
             blocks: self.blocks,

@@ -18,14 +18,14 @@ use crate::Content;
 /// so that self-referencing `Content`s don't blow up the stack on compilation.
 pub trait Combine {
     /// First type for the result tuple
-    type I: Content + Copy;
+    type I: Content + Copy + Sized;
     /// Second type for the result tuple
-    type J: Content + Copy;
+    type J: Content + Copy + Sized;
     /// Third type for the result tuple
-    type K: Content + Copy;
+    type K: Content + Copy + Sized;
 
     /// Combines current tuple with a new element.
-    fn combine<X: Content>(self, other: &X) -> (Self::I, Self::J, Self::K, &X);
+    fn combine<X: Content + ?Sized>(self, other: &X) -> (Self::I, Self::J, Self::K, &X);
 }
 
 /// Helper trait that re-exposes `render_field_x` methods of a `Content` trait,
@@ -100,7 +100,7 @@ impl Combine for () {
     type K = ();
 
     #[inline]
-    fn combine<X: Content>(self, other: &X) -> ((), (), (), &X) {
+    fn combine<X: Content + ?Sized>(self, other: &X) -> ((), (), (), &X) {
         ((), (), (), other)
     }
 }
@@ -109,27 +109,27 @@ impl ContentSequence for () {}
 
 impl<'tup, A, B, C, D> Combine for (A, B, C, &'tup D)
 where
-    A: Content + Copy,
-    B: Content + Copy,
-    C: Content + Copy,
-    D: Content,
+    A: Content + Copy + Sized,
+    B: Content + Copy + Sized,
+    C: Content + Copy + Sized,
+    D: Content + ?Sized,
 {
     type I = B;
     type J = C;
     type K = &'tup D;
 
     #[inline]
-    fn combine<X: Content>(self, other: &X) -> (B, C, &'tup D, &X) {
+    fn combine<X: Content + ?Sized>(self, other: &X) -> (B, C, &'tup D, &X) {
         (self.1, self.2, self.3, other)
     }
 }
 
 impl<A, B, C, D> ContentSequence for (A, B, C, &D)
 where
-    A: Content + Copy,
-    B: Content + Copy,
-    C: Content + Copy,
-    D: Content,
+    A: Content + Copy + Sized,
+    B: Content + Copy + Sized,
+    C: Content + Copy + Sized,
+    D: Content + ?Sized,
 {
     #[inline]
     fn render_field_escaped<E: Encoder>(
