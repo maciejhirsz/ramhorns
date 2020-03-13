@@ -240,11 +240,10 @@ enum Source<'tpl> {
 impl<'tpl> Source<'tpl> {
     fn extend<T>(self, iter: T) -> Self
     where
-        T: IntoIterator<Item = Cow<'tpl, str>>,
+        T: Iterator<Item = Cow<'tpl, str>>,
     {
         Source::Many(match self {
             Source::One(source) => {
-                let iter = iter.into_iter();
                 let mut sources = Vec::with_capacity(1 + iter.size_hint().0);
                 sources.push(source);
                 sources.extend(iter);
