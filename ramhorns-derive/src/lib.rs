@@ -125,6 +125,15 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
             fn capacity_hint(&self, tpl: &ramhorns::Template) -> usize {
                 tpl.capacity_hint() #( + self.#fields.capacity_hint(tpl) )*
             }
+            
+            #[inline]
+            fn render_section<C, E>(&self, section: ramhorns::Section<C>, encoder: &mut E) -> Result<(), E::Error>
+            where
+                C: ramhorns::traits::ContentSequence,
+                E: ramhorns::encoding::Encoder,
+            {
+                section.with(self).render(encoder)
+            }
 
             #[inline]
             fn render_field_escaped<E>(&self, hash: u64, _: &str, encoder: &mut E) -> Result<bool, E::Error>
