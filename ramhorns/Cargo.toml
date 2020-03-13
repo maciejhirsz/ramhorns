@@ -1,6 +1,6 @@
 [package]
 name = "ramhorns"
-version = "0.8.0"
+version = "0.8.1"
 authors = ["Maciej Hirsz <maciej.hirsz@pm.me>"]
 license = "GPL-3.0"
 edition = "2018"
@@ -12,9 +12,11 @@ keywords = ["html", "template", "mustache"]
 categories = ["template-engine"]
 
 [dependencies]
+beef = "0.1.2"
 fnv = "1.0"
 pulldown-cmark = "0.7"
 ramhorns-derive = { version = "0.8.0", optional = true }
+rustc-hash = "1.1.0"
 
 [features]
 default = ["export_derive"]

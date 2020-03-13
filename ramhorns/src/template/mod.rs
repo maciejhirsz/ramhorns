@@ -10,8 +10,6 @@
 mod parse;
 mod section;
 
-use std::borrow::Cow;
-use std::collections::HashMap;
 use std::fs::File;
 use std::hash::Hasher;
 use std::io;
@@ -20,6 +18,8 @@ use std::path::{Path, PathBuf};
 use crate::encoding::EscapingIOEncoder;
 use crate::{Content, Error};
 
+use rustc_hash::FxHashMap;
+use beef::Cow;
 use fnv::FnvHasher;
 
 pub use section::Section;
@@ -34,55 +34,48 @@ pub struct Template<'tpl> {
     capacity_hint: usize,
 
     /// Source from which this template was parsed.
-    source: Cow<'tpl, str>,
-
-    /// Partials used in this template
-    partials: Vec<Cow<'tpl, str>>,
+    source: Source<'tpl>,
 }
 
 /// A safe wrapper around a `HashMap` containing preprocessed templates
 /// of the type `Template`, accesible by their name
 pub struct Templates {
-    partials: HashMap<Cow<'static, str>, Template<'static>>,
+    partials: FxHashMap<Cow<'static, str>, Template<'static>>,
     dir: PathBuf,
 }
 
 impl<'tpl> Template<'tpl> {
     /// Create a new `Template` out of the source.
     ///
-    /// + If `Source` is a `&str`, this `Template` will borrow it with appropriate lifetime.
-    /// + If `Source` is a `String`, this `Template` will take it's ownership (The `'tpl` lifetime will be `'static`).
-    pub fn new<Source>(source: Source) -> Result<Self, Error>
+    /// + If `source` is a `&str`, this `Template` will borrow it with appropriate lifetime.
+    /// + If `source` is a `String`, this `Template` will take it's ownership (The `'tpl` lifetime will be `'static`).
+    pub fn new<S>(source: S) -> Result<Self, Error>
     where
-        Source: Into<Cow<'tpl, str>>,
+        S: Into<Cow<'tpl, str>>,
     {
         Template::load(source, &mut NoPartials)
     }
 
-    fn load<Source, T>(source: Source, partials: &mut T) -> Result<Self, Error>
+    fn load<S, T>(source: S, partials: &mut T) -> Result<Self, Error>
     where
-        Source: Into<Cow<'tpl, str>>,
+        S: Into<Cow<'tpl, str>>,
         T: Partials<'tpl>,
     {
+        let source = source.into();
+
+        // This is allows `Block`s inside this `Template` to be references of the `source` field.
+        // This is safe as long as the `source` field is never mutated or dropped.
+        let unsafe_source: &'tpl str = unsafe {
+            &*(&*source as *const str)
+        };
+
         let mut tpl = Template {
             blocks: Vec::new(),
             capacity_hint: 0,
-            source: source.into(),
-            partials: Vec::with_capacity(0),
+            source: Source::One(source),
         };
 
-        // This is allows `Block`s inside this `Template` to be references of the `source` field.
-        // This is safe as long as the `source` field is never mutated or moved.
-        let source: &'tpl str = unsafe {
-            use std::{slice, str};
-
-            let ptr = tpl.source.as_ptr();
-            let len = tpl.source.len();
-
-            str::from_utf8_unchecked(slice::from_raw_parts(ptr, len))
-        };
-
-        let mut iter = source
+        let mut iter = unsafe_source
             .as_bytes()
             .windows(2)
             .map(|b| unsafe { &*(b.as_ptr() as *const [u8; 2]) }) // windows iterator makes this safe
@@ -90,8 +83,8 @@ impl<'tpl> Template<'tpl> {
 
         let mut last = 0;
 
-        tpl.parse(source, &mut iter, &mut last, None, partials)?;
-        let tail = &source[last..].trim_end();
+        tpl.parse(unsafe_source, &mut iter, &mut last, None, partials)?;
+        let tail = &unsafe_source[last..].trim_end();
         tpl.blocks.push(Block::new(tail, "", Tag::Tail));
         tpl.capacity_hint += tail.len();
 
@@ -144,7 +137,10 @@ impl<'tpl> Template<'tpl> {
 
     /// Get a reference to a source this `Template` was created from.
     pub fn source(&self) -> &str {
-        &self.source
+        match self.source {
+            Source::One(ref source) => source,
+            Source::Many(ref sources) => &sources[0],
+        }
     }
 }
 
@@ -156,14 +152,21 @@ impl Template<'static> {
     /// let tpl = Template::from_file("./templates/my_template.html").unwrap();
     /// ```
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
-        let mut partials = Templates::new(
+        let mut tpls = Templates::new(
             path.as_ref()
                 .parent()
                 .unwrap_or_else(|| ".".as_ref())
                 .canonicalize()?,
         );
-        Template::load(std::fs::read_to_string(&path)?, &mut partials).map(move |mut tpl| {
-            tpl.partials = partials.into_sources();
+        Template::load(std::fs::read_to_string(&path)?, &mut tpls).map(move |mut tpl| {
+            tpl.source = tpl.source.extend(
+                tpls.partials
+                    .into_iter()
+                    .map(|(_, tpl)| match tpl.source {
+                        Source::One(source) => source,
+                        Source::Many(_) => unreachable!(),
+                    }),
+            );
             tpl
         })
     }
@@ -172,7 +175,7 @@ impl Template<'static> {
 impl Templates {
     fn new(dir: PathBuf) -> Self {
         Templates {
-            partials: HashMap::new(),
+            partials: FxHashMap::default(),
             dir,
         }
     }
@@ -198,7 +201,8 @@ impl Templates {
                         .strip_prefix(&templates.dir)
                         .unwrap_or(&path)
                         .to_string_lossy();
-                    if !templates.partials.contains_key(&name) {
+
+                    if !templates.partials.contains_key(&*name) {
                         let template = Template::load(std::fs::read_to_string(&path)?, templates)?;
                         templates
                             .partials
@@ -222,6 +226,35 @@ impl Templates {
         self.partials.get(name)
     }
 }
+
+enum Source<'tpl> {
+    /// Template is constructed from a single source
+    One(Cow<'tpl, str>),
+
+    /// Template is constructed from multiple sources
+    Many(Vec<Cow<'tpl, str>>),
+}
+
+impl<'tpl> Source<'tpl> {
+    fn extend<T>(self, iter: T) -> Self
+    where
+        T: Iterator<Item = Cow<'tpl, str>>,
+    {
+        Source::Many(match self {
+            Source::One(source) => {
+                let mut sources = Vec::with_capacity(1 + iter.size_hint().0);
+                sources.push(source);
+                sources.extend(iter);
+                sources
+            },
+            Source::Many(mut sources) => {
+                sources.extend(iter);
+                sources
+            },
+        })
+    }
+}
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tag {
@@ -277,7 +310,6 @@ impl<'tpl> Block<'tpl> {
 
 pub(crate) trait Partials<'tpl> {
     fn get_partial(&mut self, name: &'tpl str) -> Result<&Template<'tpl>, Error>;
-    fn into_sources(self) -> Vec<Cow<'tpl, str>>;
 }
 
 struct NoPartials;
@@ -286,30 +318,19 @@ impl<'tpl> Partials<'tpl> for NoPartials {
     fn get_partial(&mut self, _name: &'tpl str) -> Result<&Template<'tpl>, Error> {
         Err(Error::PartialsDisabled)
     }
-
-    fn into_sources(self) -> Vec<Cow<'tpl, str>> {
-        Vec::with_capacity(0)
-    }
 }
 
 impl Partials<'static> for Templates {
     fn get_partial(&mut self, name: &'static str) -> Result<&Template<'static>, Error> {
-        let path = self.dir.join(name).canonicalize()?;
-        if !path.starts_with(&self.dir) {
-            return Err(Error::IllegalPartial(name.into()));
-        }
         if !self.partials.contains_key(name) {
+            let path = self.dir.join(name).canonicalize()?;
+            if !path.starts_with(&self.dir) {
+                return Err(Error::IllegalPartial(name.into()));
+            }
             let template = Template::load(std::fs::read_to_string(&path)?, self)?;
             self.partials.insert(name.into(), template);
         };
         Ok(&self.partials[name])
-    }
-
-    fn into_sources(self) -> Vec<Cow<'static, str>> {
-        self.partials
-            .into_iter()
-            .map(|(_, tpl)| tpl.source)
-            .collect()
     }
 }
 
