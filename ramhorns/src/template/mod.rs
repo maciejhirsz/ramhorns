@@ -324,11 +324,11 @@ impl<'tpl> Partials<'tpl> for NoPartials {
 
 impl Partials<'static> for Templates {
     fn get_partial(&mut self, name: &'static str) -> Result<&Template<'static>, Error> {
-        let path = self.dir.join(name).canonicalize()?;
-        if !path.starts_with(&self.dir) {
-            return Err(Error::IllegalPartial(name.into()));
-        }
         if !self.partials.contains_key(name) {
+            let path = self.dir.join(name).canonicalize()?;
+            if !path.starts_with(&self.dir) {
+                return Err(Error::IllegalPartial(name.into()));
+            }
             let template = Template::load(std::fs::read_to_string(&path)?, self)?;
             self.partials.insert(name.into(), template);
         };
