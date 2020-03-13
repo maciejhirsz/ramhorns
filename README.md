@@ -96,7 +96,7 @@ test e_simple_handlebars    ... bench:       1,015 ns/iter (+/- 33)
 ```
 
 Worth noting here is that [**Askama**](https://github.com/djc/askama) is processing
-templates at compile time and generate static rust code for rendering. This is great
+templates at compile time and generates static rust code for rendering. This is great
 for performance, but it also means you can't swap out templates without recompiling
 your Rust binaries. In some cases, like for a static site generator, this is
 unfortunately a deal breaker.
