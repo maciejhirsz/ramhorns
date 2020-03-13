@@ -64,11 +64,9 @@ impl<'tpl> Template<'tpl> {
         let source = source.into();
 
         // This is allows `Block`s inside this `Template` to be references of the `source` field.
-        // This is safe as long as the `source` field is never mutated or moved.
+        // This is safe as long as the `source` field is never mutated or dropped.
         let unsafe_source: &'tpl str = unsafe {
-            use std::borrow::Borrow;
-
-            &*(source.borrow() as *const str)
+            &*(&*source as *const str)
         };
 
         let mut tpl = Template {
