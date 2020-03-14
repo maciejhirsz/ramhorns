@@ -30,7 +30,7 @@ pub struct Template<'tpl> {
     /// Parsed blocks!
     blocks: Vec<Block<'tpl>>,
 
-    /// Tailing html that isn't part of any `Block`
+    /// Total byte length of all the blocks, used to estimate preallocations.
     capacity_hint: usize,
 
     /// Source from which this template was parsed.
