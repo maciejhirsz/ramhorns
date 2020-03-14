@@ -343,7 +343,7 @@ impl<T: Content> Content for Option<T> {
         E: Encoder,
     {
         if let Some(ref item) = self {
-            section.with(item).render(encoder)?;
+            item.render_section(section, encoder)?;
         }
 
         Ok(())
@@ -393,7 +393,7 @@ impl<T: Content, U> Content for Result<T, U> {
         E: Encoder,
     {
         if let Ok(item) = self {
-            section.with(item).render(encoder)?;
+            item.render_section(section, encoder)?;
         }
 
         Ok(())
@@ -417,7 +417,7 @@ impl<T: Content> Content for Vec<T> {
         E: Encoder,
     {
         for item in self.iter() {
-            section.with(item).render(encoder)?;
+            item.render_section(section, encoder)?;
         }
 
         Ok(())
@@ -441,7 +441,7 @@ impl<T: Content> Content for [T] {
         E: Encoder,
     {
         for item in self.iter() {
-            section.with(item).render(encoder)?;
+            item.render_section(section, encoder)?;
         }
 
         Ok(())
