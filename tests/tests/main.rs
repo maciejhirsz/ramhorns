@@ -535,7 +535,8 @@ fn struct_with_many_types() {
 
 #[test]
 fn simple_partials() {
-    let tpl = Template::from_file("templates/layout.html").unwrap();
+    let mut tpls = Templates::lazy("templates").unwrap();
+    let tpl = tpls.load("layout.html").unwrap();
     let html = tpl.render(&"");
 
     assert_eq!(html, "<head><h1>Head</h1></head>");
@@ -567,8 +568,10 @@ fn simple_partials_folder() {
 fn illegal_partials() {
     use ramhorns::Error;
 
+    let mut tpls = Templates::lazy("templates").unwrap();
+
     let tpl1 = Template::new("<div>{{>templates/layout.html}}</div>");
-    let tpl2 = Template::from_file("templates/illegal.hehe");
+    let tpl2 = tpls.load("illegal.hehe");
 
     if let Err(Error::PartialsDisabled) = tpl1 {
     } else {

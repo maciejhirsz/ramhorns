@@ -34,11 +34,11 @@ pub struct Template<'tpl> {
     capacity_hint: usize,
 
     /// Source from which this template was parsed.
-    source: Source<'tpl>,
+    source: Cow<'tpl, str>,
 }
 
 /// A safe wrapper around a `HashMap` containing preprocessed templates
-/// of the type `Template`, accesible by their name
+/// of the type `Template`, accesible by their name.
 pub struct Templates {
     partials: FxHashMap<Cow<'static, str>, Template<'static>>,
     dir: PathBuf,
@@ -72,7 +72,7 @@ impl<'tpl> Template<'tpl> {
         let mut tpl = Template {
             blocks: Vec::new(),
             capacity_hint: 0,
-            source: Source::One(source),
+            source,
         };
 
         let mut iter = unsafe_source
@@ -137,49 +137,11 @@ impl<'tpl> Template<'tpl> {
 
     /// Get a reference to a source this `Template` was created from.
     pub fn source(&self) -> &str {
-        match self.source {
-            Source::One(ref source) => source,
-            Source::Many(ref sources) => &sources[0],
-        }
-    }
-}
-
-impl Template<'static> {
-    /// Create a template from a file.
-    ///
-    /// ```no_run
-    /// # use ramhorns::Template;
-    /// let tpl = Template::from_file("./templates/my_template.html").unwrap();
-    /// ```
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
-        let mut tpls = Templates::new(
-            path.as_ref()
-                .parent()
-                .unwrap_or_else(|| ".".as_ref())
-                .canonicalize()?,
-        );
-        Template::load(std::fs::read_to_string(&path)?, &mut tpls).map(move |mut tpl| {
-            tpl.source = tpl.source.extend(
-                tpls.partials
-                    .into_iter()
-                    .map(|(_, tpl)| match tpl.source {
-                        Source::One(source) => source,
-                        Source::Many(_) => unreachable!(),
-                    }),
-            );
-            tpl
-        })
+        &self.source
     }
 }
 
 impl Templates {
-    fn new(dir: PathBuf) -> Self {
-        Templates {
-            partials: FxHashMap::default(),
-            dir,
-        }
-    }
-
     /// Loads all the `.html` files as templates from the given folder into a hashmap, making them
     /// accessible via their path, joining partials as required
     /// ```no_run
@@ -189,7 +151,7 @@ impl Templates {
     /// let rendered = tpls.get("hello.html").unwrap().render(&content);
     /// ```
     pub fn from_folder<P: AsRef<Path>>(dir: P) -> Result<Self, Error> {
-        let mut templates = Templates::new(dir.as_ref().canonicalize()?);
+        let mut templates = Templates::lazy(dir)?;
 
         fn load_folder(path: &Path, templates: &mut Templates) -> Result<(), Error> {
             for entry in std::fs::read_dir(path)? {
@@ -217,44 +179,51 @@ impl Templates {
         Ok(templates)
     }
 
-    /// Get the template with the given name, if it exists
+    /// Create a new empty mapping of files to template for a given folder.
+    /// ```no_run
+    /// # use ramhorns::Templates;
+    /// let mut tpls = Templates::lazy("./templates").unwrap();
+    /// let content = "I am the content";
+    /// let rendered = tpls.load("hello.html").unwrap().render(&content);
+    /// ```
+    pub fn lazy<P: AsRef<Path>>(dir: P) -> Result<Self, Error> {
+        Ok(Templates {
+            partials: FxHashMap::default(),
+            dir: dir.as_ref().canonicalize()?,
+        })
+    }
+
+    /// Get the template with the given name, if it exists.
     pub fn get<S>(&self, name: &S) -> Option<&Template<'static>>
     where
         for<'a> Cow<'a, str>: std::borrow::Borrow<S>,
-        S: std::hash::Hash + Eq + ?Sized,
+        S: std::hash::Hash + AsRef<Path> + Eq + ?Sized,
     {
         self.partials.get(name)
     }
-}
 
-enum Source<'tpl> {
-    /// Template is constructed from a single source
-    One(Cow<'tpl, str>),
+    /// Get the template with the given name. If the template doesn't exist,
+    /// it will be loaded from file and parsed first.
+    ///
+    /// Use this method in tandem with `Templates::lazy`.
+    pub fn load(&mut self, name: &str) -> Result<&Template<'static>, Error> {
+        self.load_internal(name.to_owned().into())
+    }
 
-    /// Template is constructed from multiple sources
-    Many(Vec<Cow<'tpl, str>>),
-}
+    fn load_internal(&mut self, name: Cow<'static, str>) -> Result<&Template<'static>, Error> {
+        let n: &str = &name;
+        if !self.partials.contains_key(n) {
+            let path = self.dir.join(n).canonicalize()?;
 
-impl<'tpl> Source<'tpl> {
-    fn extend<T>(self, iter: T) -> Self
-    where
-        T: Iterator<Item = Cow<'tpl, str>>,
-    {
-        Source::Many(match self {
-            Source::One(source) => {
-                let mut sources = Vec::with_capacity(1 + iter.size_hint().0);
-                sources.push(source);
-                sources.extend(iter);
-                sources
-            },
-            Source::Many(mut sources) => {
-                sources.extend(iter);
-                sources
-            },
-        })
+            if !path.starts_with(&self.dir) {
+                return Err(Error::IllegalPartial(n.into()));
+            }
+            let template = Template::load(std::fs::read_to_string(&path)?, self)?;
+            self.partials.insert(name.clone(), template);
+        };
+        Ok(&self.partials[n])
     }
 }
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tag {
@@ -322,15 +291,7 @@ impl<'tpl> Partials<'tpl> for NoPartials {
 
 impl Partials<'static> for Templates {
     fn get_partial(&mut self, name: &'static str) -> Result<&Template<'static>, Error> {
-        if !self.partials.contains_key(name) {
-            let path = self.dir.join(name).canonicalize()?;
-            if !path.starts_with(&self.dir) {
-                return Err(Error::IllegalPartial(name.into()));
-            }
-            let template = Template::load(std::fs::read_to_string(&path)?, self)?;
-            self.partials.insert(name.into(), template);
-        };
-        Ok(&self.partials[name])
+        self.load_internal(Cow::borrowed(name))
     }
 }
 
