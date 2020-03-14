@@ -12,7 +12,7 @@ keywords = ["html", "template", "mustache"]
 categories = ["template-engine"]
 
 [dependencies]
-beef = "0.2.0"
+beef = "0.2.1"
 fnv = "1.0"
 pulldown-cmark = "0.7"
 ramhorns-derive = { version = "0.8.0", optional = true }
