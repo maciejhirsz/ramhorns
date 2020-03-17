@@ -79,7 +79,7 @@
 use std::path::{Path, PathBuf};
 
 use beef::Cow;
-use rustc_hash::FxHashMap;
+use ahash::AHashMap as HashMap;
 
 mod cmark;
 mod content;
@@ -99,7 +99,7 @@ pub use ramhorns_derive::Content;
 /// A safe wrapper around a `HashMap` containing preprocessed templates
 /// of the type `Template`, accesible by their name.
 pub struct Ramhorns {
-    partials: FxHashMap<Cow<'static, str>, Template<'static>>,
+    partials: HashMap<Cow<'static, str>, Template<'static>>,
     dir: PathBuf,
 }
 
@@ -150,7 +150,7 @@ impl Ramhorns {
     /// ```
     pub fn lazy<P: AsRef<Path>>(dir: P) -> Result<Self, Error> {
         Ok(Ramhorns {
-            partials: FxHashMap::default(),
+            partials: HashMap::default(),
             dir: dir.as_ref().canonicalize()?,
         })
     }
