@@ -76,7 +76,7 @@ assert_eq!(rendered, "<h1>My Awesome Blog!</h1>\
                       </article>");
 ```
 
-### Features so far
+### Features
 
 + Rendering common types, such as `&str`, `String`, `bool`s, and numbers into `{{variables}}`.
 + Unescaped printing with `{{{tripple-brace}}}` or `{{&ampersant}}`.

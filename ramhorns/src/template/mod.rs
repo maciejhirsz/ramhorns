@@ -13,12 +13,12 @@ mod section;
 use std::fs::File;
 use std::hash::Hasher;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::encoding::EscapingIOEncoder;
 use crate::{Content, Error};
+use crate::Partials;
 
-use rustc_hash::FxHashMap;
 use beef::Cow;
 use fnv::FnvHasher;
 
@@ -37,13 +37,6 @@ pub struct Template<'tpl> {
     source: Cow<'tpl, str>,
 }
 
-/// A safe wrapper around a `HashMap` containing preprocessed templates
-/// of the type `Template`, accesible by their name.
-pub struct Templates {
-    partials: FxHashMap<Cow<'static, str>, Template<'static>>,
-    dir: PathBuf,
-}
-
 impl<'tpl> Template<'tpl> {
     /// Create a new `Template` out of the source.
     ///
@@ -56,7 +49,7 @@ impl<'tpl> Template<'tpl> {
         Template::load(source, &mut NoPartials)
     }
 
-    fn load<S, T>(source: S, partials: &mut T) -> Result<Self, Error>
+    pub(crate) fn load<S, T>(source: S, partials: &mut T) -> Result<Self, Error>
     where
         S: Into<Cow<'tpl, str>>,
         T: Partials<'tpl>,
@@ -141,90 +134,6 @@ impl<'tpl> Template<'tpl> {
     }
 }
 
-impl Templates {
-    /// Loads all the `.html` files as templates from the given folder into a hashmap, making them
-    /// accessible via their path, joining partials as required
-    /// ```no_run
-    /// # use ramhorns::Templates;
-    /// let tpls = Templates::from_folder("./templates").unwrap();
-    /// let content = "I am the content";
-    /// let rendered = tpls.get("hello.html").unwrap().render(&content);
-    /// ```
-    pub fn from_folder<P: AsRef<Path>>(dir: P) -> Result<Self, Error> {
-        let mut templates = Templates::lazy(dir)?;
-
-        fn load_folder(path: &Path, templates: &mut Templates) -> Result<(), Error> {
-            for entry in std::fs::read_dir(path)? {
-                let path = entry?.path();
-                if path.is_dir() {
-                    load_folder(&path, templates)?;
-                } else if path.extension().unwrap_or_else(|| "".as_ref()) == "html" {
-                    let name = path
-                        .strip_prefix(&templates.dir)
-                        .unwrap_or(&path)
-                        .to_string_lossy();
-
-                    if !templates.partials.contains_key(&*name) {
-                        let template = Template::load(std::fs::read_to_string(&path)?, templates)?;
-                        templates
-                            .partials
-                            .insert(name.into_owned().into(), template);
-                    }
-                }
-            }
-            Ok(())
-        }
-        load_folder(&templates.dir.clone(), &mut templates)?;
-
-        Ok(templates)
-    }
-
-    /// Create a new empty mapping of files to template for a given folder.
-    /// ```no_run
-    /// # use ramhorns::Templates;
-    /// let mut tpls = Templates::lazy("./templates").unwrap();
-    /// let content = "I am the content";
-    /// let rendered = tpls.load("hello.html").unwrap().render(&content);
-    /// ```
-    pub fn lazy<P: AsRef<Path>>(dir: P) -> Result<Self, Error> {
-        Ok(Templates {
-            partials: FxHashMap::default(),
-            dir: dir.as_ref().canonicalize()?,
-        })
-    }
-
-    /// Get the template with the given name, if it exists.
-    pub fn get<S>(&self, name: &S) -> Option<&Template<'static>>
-    where
-        for<'a> Cow<'a, str>: std::borrow::Borrow<S>,
-        S: std::hash::Hash + AsRef<Path> + Eq + ?Sized,
-    {
-        self.partials.get(name)
-    }
-
-    /// Get the template with the given name. If the template doesn't exist,
-    /// it will be loaded from file and parsed first.
-    ///
-    /// Use this method in tandem with `Templates::lazy`.
-    pub fn load(&mut self, name: &str) -> Result<&Template<'static>, Error> {
-        self.load_internal(name.to_owned().into())
-    }
-
-    fn load_internal(&mut self, name: Cow<'static, str>) -> Result<&Template<'static>, Error> {
-        let n: &str = &name;
-        if !self.partials.contains_key(n) {
-            let path = self.dir.join(n).canonicalize()?;
-
-            if !path.starts_with(&self.dir) {
-                return Err(Error::IllegalPartial(n.into()));
-            }
-            let template = Template::load(std::fs::read_to_string(&path)?, self)?;
-            self.partials.insert(name.clone(), template);
-        };
-        Ok(&self.partials[n])
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tag {
     /// `{{escaped}}` tag
@@ -234,10 +143,10 @@ pub enum Tag {
     Unescaped,
 
     /// `{{#section}}` opening tag (with number of subsequent blocks it contains)
-    Section(usize),
+    Section(u32),
 
     /// `{{^inverse}}` section opening tag (with number of subsequent blocks it contains)
-    Inverse(usize),
+    Inverse(u32),
 
     /// `{{/closing}}` section tag
     Closing,
@@ -277,21 +186,11 @@ impl<'tpl> Block<'tpl> {
     }
 }
 
-pub(crate) trait Partials<'tpl> {
-    fn get_partial(&mut self, name: &'tpl str) -> Result<&Template<'tpl>, Error>;
-}
-
 struct NoPartials;
 
 impl<'tpl> Partials<'tpl> for NoPartials {
     fn get_partial(&mut self, _name: &'tpl str) -> Result<&Template<'tpl>, Error> {
         Err(Error::PartialsDisabled)
-    }
-}
-
-impl Partials<'static> for Templates {
-    fn get_partial(&mut self, name: &'static str) -> Result<&Template<'static>, Error> {
-        self.load_internal(Cow::borrowed(name))
     }
 }
 

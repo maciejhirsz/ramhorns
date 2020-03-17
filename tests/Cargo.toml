@@ -1,7 +1,7 @@
 [package]
 name = "tests"
 version = "0.0.0"
-authors = ["maciejhirsz <maciej.hirsz@pm.me>"]
+authors = ["maciejhirsz <hello@maciej.codes>"]
 license = "GPL-3.0"
 repository = "https://github.com/maciejhirsz/ramhorns"
 edition = "2018"

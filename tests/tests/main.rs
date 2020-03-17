@@ -1,4 +1,4 @@
-use ramhorns::{Content, Template, Templates};
+use ramhorns::{Content, Template, Ramhorns};
 
 #[derive(Content)]
 struct Post<'a> {
@@ -535,8 +535,8 @@ fn struct_with_many_types() {
 
 #[test]
 fn simple_partials() {
-    let mut tpls = Templates::lazy("templates").unwrap();
-    let tpl = tpls.load("layout.html").unwrap();
+    let mut tpls = Ramhorns::lazy("templates").unwrap();
+    let tpl = tpls.from_file("layout.html").unwrap();
     let html = tpl.render(&"");
 
     assert_eq!(html, "<head><h1>Head</h1></head>");
@@ -546,7 +546,7 @@ fn simple_partials() {
 fn simple_partials_folder() {
     use std::fs::read_to_string;
 
-    let tpls = Templates::from_folder("templates").unwrap();
+    let tpls = Ramhorns::from_folder("templates").unwrap();
     let post = Post {
         title: "Hello, Ramhorns!",
         body: "This is a really simple test of the rendering!",
@@ -568,10 +568,10 @@ fn simple_partials_folder() {
 fn illegal_partials() {
     use ramhorns::Error;
 
-    let mut tpls = Templates::lazy("templates").unwrap();
+    let mut tpls = Ramhorns::lazy("templates").unwrap();
 
     let tpl1 = Template::new("<div>{{>templates/layout.html}}</div>");
-    let tpl2 = tpls.load("illegal.hehe");
+    let tpl2 = tpls.from_file("illegal.hehe");
 
     if let Err(Error::PartialsDisabled) = tpl1 {
     } else {

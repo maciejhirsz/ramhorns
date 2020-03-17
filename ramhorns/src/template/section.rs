@@ -83,19 +83,19 @@ where
                     self.contents.render_field_section(
                         block.hash,
                         block.name,
-                        self.slice(index..index + count),
+                        self.slice(index..index + count as usize),
                         encoder,
                     )?;
-                    index += count;
+                    index += count as usize;
                 }
                 Tag::Inverse(count) => {
                     self.contents.render_field_inverse(
                         block.hash,
                         block.name,
-                        self.slice(index..index + count),
+                        self.slice(index..index + count as usize),
                         encoder,
                     )?;
-                    index += count;
+                    index += count as usize;
                 }
                 _ => {}
             }

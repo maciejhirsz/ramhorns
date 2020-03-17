@@ -1,7 +1,7 @@
 [package]
 name = "ramhorns-derive"
 version = "0.8.0"
-authors = ["Maciej Hirsz <maciej.hirsz@pm.me>"]
+authors = ["Maciej Hirsz <hello@maciej.codes>"]
 license = "GPL-3.0"
 edition = "2018"
 description = "Experimental Mustache-like templating engine."

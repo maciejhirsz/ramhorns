@@ -116,9 +116,10 @@ fn e_simple_handlebars(b: &mut Bencher) {
 
 #[bench]
 fn pa_partials_ramhorns(b: &mut Bencher) {
-    use ramhorns::Template;
+    use ramhorns::Ramhorns;
 
-    let tpl = Template::from_file("templates/basic.html").unwrap();
+    let mut tpls = Ramhorns::lazy("templates").unwrap();
+    let tpl = tpls.from_file("basic.html").unwrap();
     let post = Post {
         title: "Hello, Ramhorns!",
         body: "This is a really simple test of the rendering!",
