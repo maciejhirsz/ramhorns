@@ -463,7 +463,7 @@ dependencies = [
 
 [[package]]
 name = "ramhorns"
-version = "0.8.1"
+version = "0.9.0"
 dependencies = [
  "ahash 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "beef 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -648,7 +648,7 @@ dependencies = [
  "askama 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "handlebars 3.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "mustache 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "ramhorns 0.8.1",
+ "ramhorns 0.9.0",
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "tera 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
