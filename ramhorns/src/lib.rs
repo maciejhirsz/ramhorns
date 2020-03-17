@@ -96,16 +96,16 @@ pub use template::{Section, Template};
 #[cfg(feature = "export_derive")]
 pub use ramhorns_derive::Content;
 
-/// A safe wrapper around a `HashMap` containing preprocessed templates
-/// of the type `Template`, accesible by their name.
+/// Aggregator for [`Template`s](./struct.Template.html), that allows them to
+/// be loaded from the file system and use partials: `{{>partial}}`
 pub struct Ramhorns {
     partials: HashMap<Cow<'static, str>, Template<'static>>,
     dir: PathBuf,
 }
 
 impl Ramhorns {
-    /// Loads all the `.html` files as templates from the given folder into a hashmap, making them
-    /// accessible via their path, joining partials as required
+    /// Loads all the `.html` files as templates from the given folder, making them
+    /// accessible via their path, joining partials as required.
     /// ```no_run
     /// # use ramhorns::Ramhorns;
     /// let tpls = Ramhorns::from_folder("./templates").unwrap();
@@ -141,7 +141,8 @@ impl Ramhorns {
         Ok(templates)
     }
 
-    /// Create a new empty mapping of files to template for a given folder.
+    /// Create a new empty aggregator for a given folder. This won't do anything until
+    /// a template has been added using [`from_file`](#method.from_file).
     /// ```no_run
     /// # use ramhorns::Ramhorns;
     /// let mut tpls = Ramhorns::lazy("./templates").unwrap();
@@ -167,7 +168,7 @@ impl Ramhorns {
     /// Get the template with the given name. If the template doesn't exist,
     /// it will be loaded from file and parsed first.
     ///
-    /// Use this method in tandem with `Ramhorns::lazy`.
+    /// Use this method in tandem with [`lazy`](#method.lazy).
     pub fn from_file(&mut self, name: &str) -> Result<&Template<'static>, Error> {
         self.load_internal(name.to_owned().into())
     }
