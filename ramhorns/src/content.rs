@@ -624,7 +624,7 @@ where
 }
 
 macro_rules! impl_pointer_types {
-    ($( $ty:ty $(: $bounds:tt)? ),*) => {
+    ($( $ty:ty $(: $bounds:ident)? ),*) => {
         $(
             impl<T: Content $(+ $bounds)? + ?Sized> Content for $ty {
                 #[inline]
@@ -727,4 +727,63 @@ macro_rules! impl_pointer_types {
     }
 }
 
-impl_pointer_types!(&T, Box<T>, std::rc::Rc<T>, std::sync::Arc<T>, Cow<'_, T>: ToOwned);
+impl_pointer_types!(&T, Box<T>, std::rc::Rc<T>, std::sync::Arc<T>, Cow<'_, T>: ToOwned, beef::Cow<'_, [T]>: Clone);
+
+#[cfg(target_pointer_width = "64")]
+impl_pointer_types!(beef::lean::Cow<'_, [T]>: Clone);
+
+// Can't implement for generic beef::Cow as it uses an internal trait.
+impl Content for beef::Cow<'_, str> {
+    #[inline]
+    fn is_truthy(&self) -> bool {
+        !self.is_empty()
+    }
+
+    #[inline]
+    fn capacity_hint(&self, _tpl: &Template) -> usize {
+        self.len()
+    }
+
+    #[inline]
+    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
+        encoder.write_escaped(self)
+    }
+
+    #[inline]
+    fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
+        encoder.write_unescaped(self)
+    }
+
+    #[inline]
+    fn render_cmark<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
+        crate::cmark::encode(self, encoder)
+    }
+}
+
+#[cfg(target_pointer_width = "64")]
+impl Content for beef::lean::Cow<'_, str> {
+    #[inline]
+    fn is_truthy(&self) -> bool {
+        !self.is_empty()
+    }
+
+    #[inline]
+    fn capacity_hint(&self, _tpl: &Template) -> usize {
+        self.len()
+    }
+
+    #[inline]
+    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
+        encoder.write_escaped(self)
+    }
+
+    #[inline]
+    fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
+        encoder.write_unescaped(self)
+    }
+
+    #[inline]
+    fn render_cmark<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
+        crate::cmark::encode(self, encoder)
+    }
+}
