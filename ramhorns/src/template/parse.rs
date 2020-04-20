@@ -10,11 +10,14 @@
 use crate::Partials;
 use super::{Block, Error, Tag, Template};
 
+const OPEN: [u8; 2] = *b"{{";
+const CLOSE: [u8; 2] = *b"}}";
+
 impl<'tpl> Template<'tpl> {
     pub(crate) fn parse(
         &mut self,
         source: &'tpl str,
-        iter: &mut impl Iterator<Item = (usize, &'tpl [u8; 2])>,
+        iter: &mut impl Iterator<Item = (usize, [u8; 2])>,
         last: &mut usize,
         until: Option<&'tpl str>,
         partials: &mut impl Partials<'tpl>,
@@ -22,7 +25,7 @@ impl<'tpl> Template<'tpl> {
         let blocks_at_start = self.blocks.len();
 
         while let Some((start, bytes)) = iter.next() {
-            if bytes == b"{{" {
+            if bytes == OPEN {
                 // Skip a byte since we got a double
                 iter.next();
 
@@ -57,11 +60,11 @@ impl<'tpl> Template<'tpl> {
                 let html = &source[*last..start];
 
                 loop {
-                    if let (end, b"}}") = iter.next().ok_or_else(|| Error::UnclosedTag)? {
+                    if let (end, CLOSE) = iter.next().ok_or_else(|| Error::UnclosedTag)? {
                         // Skip the braces
                         if end_skip == 3 {
                             match iter.next() {
-                                Some((_, b"}}")) => {}
+                                Some((_, CLOSE)) => {}
                                 _ => return Err(Error::UnclosedTag),
                             }
                         }

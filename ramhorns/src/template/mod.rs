@@ -71,7 +71,7 @@ impl<'tpl> Template<'tpl> {
         let mut iter = unsafe_source
             .as_bytes()
             .windows(2)
-            .map(|b| unsafe { &*(b.as_ptr() as *const [u8; 2]) }) // windows iterator makes this safe
+            .map(|w| [w[0], w[1]])
             .enumerate();
 
         let mut last = 0;
