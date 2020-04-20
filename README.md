@@ -2,9 +2,10 @@
 
 # Ramhorns
 
-[![Travis shield](https://travis-ci.org/maciejhirsz/ramhorns.svg)](https://travis-ci.org/maciejhirsz/ramhorns)
-[![Crates.io version shield](https://img.shields.io/crates/v/ramhorns.svg)](https://crates.io/crates/ramhorns)
-[![Crates.io license shield](https://img.shields.io/crates/l/ramhorns.svg)](https://crates.io/crates/ramhorns)
+[![Tests badge](https://github.com/maciejhirsz/ramhorns/workflows/tests/badge.svg?branch=master)](https://github.com/maciejhirsz/ramhorns/actions?query=workflow%3Atests)
+[![Crates.io version badge](https://img.shields.io/crates/v/ramhorns.svg)](https://crates.io/crates/ramhorns)
+[![Docs](https://docs.rs/ramhorns/badge.svg)](https://docs.rs/ramhorns)
+[![Crates.io license badge](https://img.shields.io/crates/l/ramhorns.svg)](https://crates.io/crates/ramhorns)
 
 Fast [**Mustache**](https://mustache.github.io/) template engine implementation
 in pure Rust.
