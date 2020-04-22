@@ -50,59 +50,47 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
 
     let mut fields = fields
         .enumerate()
-        .flat_map(|(index, field)| {
+        .filter_map(|(index, field)| {
             let mut method = None;
             let mut rename = None;
             let mut skip = false;
 
             let mut parse_attr = |attr: &Attribute| -> Result<(), Error> {
-                use syn::{Lit, Meta, NestedMeta, spanned::Spanned};
+                use syn::{spanned::Spanned, Lit, Meta, MetaNameValue, NestedMeta};
 
                 if attr.path.is_ident("md") {
                     method = Some(quote!(render_cmark));
                 } else if attr.path.is_ident("ramhorns") {
                     if let Meta::List(meta_list) = attr.parse_meta()? {
                         for nested_meta in &meta_list.nested {
-                            if let NestedMeta::Meta(meta) = nested_meta {
-                                match meta {
-                                    Meta::Path(path) if path.is_ident("skip") => {
-                                        skip = true;
-                                    }
-                                    Meta::NameValue(nv) if nv.path.is_ident("rename") => {
-                                        if let Lit::Str(ref lit_str) = nv.lit {
-                                            rename = Some(lit_str.value())
-                                        } else {
-                                            return Err(Error::new(
-                                                nv.span(),
-                                                "fields can only be renamed to string literals",
-                                            ));
-                                        }
-                                    }
-                                    _ => {
-                                        return Err(Error::new(
-                                            meta.span(),
-                                            "no such attribute in `ramhorns`",
-                                        ));
-                                    }
+                            match nested_meta {
+                                NestedMeta::Meta(Meta::Path(path)) if path.is_ident("skip") => {
+                                    skip = true;
                                 }
-                            } else {
-                                return Err(Error::new(
-                                    nested_meta.span(),
-                                    "literals have no meaning in `ramhorns` attributes; did you mean `rename = \"literal\"`?"
-                                ));
+                                NestedMeta::Meta(Meta::NameValue(MetaNameValue {
+                                    path,
+                                    lit: Lit::Str(lit_str),
+                                    ..
+                                })) if path.is_ident("rename") => rename = Some(lit_str.value()),
+                                _ => {
+                                    return Err(Error::new(
+                                        nested_meta.span(),
+                                        "not a valid attribute in `ramhorns`",
+                                    ));
+                                }
                             }
                         }
                     } else {
                         return Err(Error::new(
                             attr.span(),
-                            "missing attributes; did you mean `#[ramhorns(rename = \"literal\")]`?"
+                            "missing attributes; did you mean `#[ramhorns(rename = \"literal\")]`?",
                         ));
                     }
                 }
                 Ok(())
             };
 
-            errors.extend(field.attrs.iter().flat_map(|attr| parse_attr(attr).err()));
+            errors.extend(field.attrs.iter().filter_map(|attr| parse_attr(attr).err()));
 
             if skip {
                 return None;
