@@ -28,7 +28,7 @@ const POST: Post = Post {
     title: "Hello, Ramhorns!",
     body: "This is a really simple test of the rendering!",
 };
-const REDNERED_LEN: u64 = {
+const RENDERED_BYTES: u64 = {
     (POST.title.len() + POST.body.len() + "<title></title><h1></h1><div></div>".len()) as u64
 };
 
@@ -45,7 +45,7 @@ fn a_simple_ramhorns(b: &mut Bencher) {
 
     let tpl = Template::new(SOURCE).unwrap();
     let post = POST;
-    b.bytes = REDNERED_LEN;
+    b.bytes = RENDERED_BYTES;
 
     b.iter(|| {
         black_box(tpl.render(&post))
@@ -57,7 +57,7 @@ fn b_simple_askama(b: &mut Bencher) {
     use askama::Template;
 
     let post = POST;
-    b.bytes = REDNERED_LEN;
+    b.bytes = RENDERED_BYTES;
 
     b.iter(|| {
         black_box(post.render())
@@ -75,7 +75,7 @@ fn c_simple_tera(b: &mut Bencher) {
     let post = POST;
     let post = Context::from_serialize(&post).unwrap();
 
-    b.bytes = REDNERED_LEN;
+    b.bytes = RENDERED_BYTES;
 
     b.iter(|| {
         black_box(tera.render("t1", &post).unwrap())
@@ -91,7 +91,7 @@ fn c_simple_tera_from_serialize(b: &mut Bencher) {
     tera.add_raw_template("t1", "<title>{{title}}</title><h1>{{ title }}</h1><div>{{body|safe}}</div>").unwrap();
 
     let post = POST;
-    b.bytes = REDNERED_LEN;
+    b.bytes = RENDERED_BYTES;
 
     b.iter(|| {
         black_box(tera.render("t1", &Context::from_serialize(&post).unwrap()).unwrap())
@@ -103,7 +103,7 @@ fn d_simple_mustache(b: &mut Bencher) {
     let tpl = mustache::compile_str(SOURCE).unwrap();
 
     let post = POST;
-    b.bytes = REDNERED_LEN;
+    b.bytes = RENDERED_BYTES;
 
     b.iter(|| {
         black_box(tpl.render_to_string(&post))
@@ -119,7 +119,7 @@ fn e_simple_handlebars(b: &mut Bencher) {
     handlebars.register_template_string("t1", SOURCE).unwrap();
 
     let post = POST;
-    b.bytes = REDNERED_LEN;
+    b.bytes = RENDERED_BYTES;
 
     b.iter(|| {
         black_box(handlebars.render("t1", &post))
@@ -133,7 +133,7 @@ fn pa_partials_ramhorns(b: &mut Bencher) {
     let mut tpls = Ramhorns::lazy("templates").unwrap();
     let tpl = tpls.from_file("basic.html").unwrap();
     let post = POST;
-    b.bytes = REDNERED_LEN;
+    b.bytes = RENDERED_BYTES;
 
     b.iter(|| {
         black_box(tpl.render(&post))
@@ -155,7 +155,7 @@ fn pb_partials_askama(b: &mut Bencher) {
         title: "Hello, Ramhorns!",
         body: "This is a really simple test of the rendering!",
     };
-    b.bytes = REDNERED_LEN;
+    b.bytes = RENDERED_BYTES;
 
     b.iter(|| {
         black_box(post.render())
@@ -167,7 +167,7 @@ fn pc_partials_mustache(b: &mut Bencher) {
     let tpl = mustache::compile_path("templates/bench.moustache").unwrap();
 
     let post = POST;
-    b.bytes = REDNERED_LEN;
+    b.bytes = RENDERED_BYTES;
 
     b.iter(|| {
         black_box(tpl.render_to_string(&post))
@@ -185,7 +185,7 @@ fn pd_partials_handlebars(b: &mut Bencher) {
     handlebars.register_template_file("footer.rh", "templates/footer.html").unwrap();
 
     let post = POST;
-    b.bytes = REDNERED_LEN;
+    b.bytes = RENDERED_BYTES;
 
     b.iter(|| {
         black_box(handlebars.render("t1", &post))

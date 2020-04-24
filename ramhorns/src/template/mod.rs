@@ -49,10 +49,9 @@ impl<'tpl> Template<'tpl> {
         Template::load(source, &mut NoPartials)
     }
 
-    pub(crate) fn load<S, T>(source: S, partials: &mut T) -> Result<Self, Error>
+    pub(crate) fn load<S>(source: S, partials: &mut dyn Partials<'tpl>) -> Result<Self, Error>
     where
         S: Into<Cow<'tpl, str>>,
-        T: Partials<'tpl>,
     {
         let source = source.into();
 
@@ -68,15 +67,7 @@ impl<'tpl> Template<'tpl> {
             source,
         };
 
-        let mut iter = unsafe_source
-            .as_bytes()[..unsafe_source.len() - 1]
-            .iter()
-            .map(|w| unsafe { *(w as *const u8 as *const [u8; 2]) })
-            .enumerate();
-
-        let mut last = 0;
-
-        tpl.parse(unsafe_source, &mut iter, &mut last, partials)?;
+        let last = tpl.parse(unsafe_source, partials)?;
         let tail = &unsafe_source[last..].trim_end();
         tpl.blocks.push(Block::new(tail, "", Tag::Tail));
         tpl.capacity_hint += tail.len();

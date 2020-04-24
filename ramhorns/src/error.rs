@@ -15,9 +15,16 @@ pub enum Error {
     /// There was an error with the IO (only happens when parsing a file)
     Io(io::Error),
 
+    /// Stack overflow when parsing nested sections
+    StackOverflow,
+
     /// Parser was expecting a tag closing a section `{{/foo}}`,
     /// but never found it or found a different one.
     UnclosedSection(Box<str>),
+
+    /// Similar to above, but happens if `{{/foo}}` happens while
+    /// no section was open
+    UnopenedSection(Box<str>),
 
     /// Parser was expecting to find the closing braces of a tag `}}`, but never found it.
     UnclosedTag,
@@ -37,13 +44,28 @@ impl From<io::Error> for Error {
     }
 }
 
+impl<T> From<arrayvec::CapacityError<T>> for Error {
+    fn from(_: arrayvec::CapacityError<T>) -> Self {
+        Error::StackOverflow
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::Io(err) => err.fmt(f),
+            Error::StackOverflow => write!(
+                f,
+                "Ramhorns has overflown its stack when parsing nested sections",
+            ),
             Error::UnclosedSection(name) => write!(
                 f,
                 "Section not closed properly, was expecting {{{{/{}}}}}",
+                name
+            ),
+            Error::UnopenedSection(name) => write!(
+                f,
+                "Unexpected closing section {{{{/{}}}}}",
                 name
             ),
             Error::UnclosedTag => write!(f, "Couldn't find closing braces matching opening braces"),
