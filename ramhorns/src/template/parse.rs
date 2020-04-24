@@ -20,9 +20,7 @@ impl<'tpl> Template<'tpl> {
         iter: &mut impl Iterator<Item = (usize, [u8; 2])>,
         last: &mut usize,
         partials: &mut impl Partials<'tpl>,
-    ) -> Result<u32, Error> {
-        let blocks_at_start = self.blocks.len();
-
+    ) -> Result<(), Error> {
         while let Some((start, bytes)) = iter.next() {
             if bytes == OPEN {
                 // Skip a byte since we got a double
@@ -81,24 +79,26 @@ impl<'tpl> Template<'tpl> {
 
                         match tag {
                             Tag::Section | Tag::Inverse => {
-                                let count = self.parse(source, iter, last, partials)?;
+                                self.parse(source, iter, last, partials)?;
+
+                                let children = (self.blocks.len() - 1 - insert_index) as u32;
 
                                 let this = &mut self.blocks[insert_index];
                                 let hash = this.hash;
-                                this.children = count;
+                                this.children = children;
 
                                 if let Some(last) = self.blocks.last() {
-                                    if last.hash != hash {
+                                    if last.hash != hash || last.tag != Tag::Closing {
                                         return Err(Error::UnclosedSection(name.into()));
                                     }
                                 }
                             }
                             Tag::Closing => {
-                                return Ok((self.blocks.len() - blocks_at_start) as u32);
+                                return Ok(());
                             }
                             Tag::Partial => {
                                 let partial = partials.get_partial(name)?;
-                                self.blocks.extend(&partial.blocks);
+                                self.blocks.extend_from_slice(&partial.blocks);
                                 self.capacity_hint += partial.capacity_hint;
                             }
                             _ => {}
@@ -110,6 +110,6 @@ impl<'tpl> Template<'tpl> {
             }
         }
 
-        Ok((self.blocks.len() - blocks_at_start) as u32)
+        Ok(())
     }
 }

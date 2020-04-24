@@ -6,23 +6,31 @@ use ramhorns::Content;
 use serde_derive::Serialize;
 use askama::Template;
 
-static SOURCE: &str = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{{body}}}</div>";
-static POSTS: &str = "\
+static PARSE: &str = "\
     <html>\
         <head>\
             <title>{{title}}</title>\
         </head>
         <body>\
-            {{#post}}\
+            {{#posts}}\
                 <h1>{{title}}</h1>\
                 <em>{{date}}</em>\
                 <article>\
                     {{{body}}}\
                 </article>\
-            {{/post}}\
+            {{/posts}}\
         </body>\
     </html>\
     ";
+
+static SOURCE: &str = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{{body}}}</div>";
+const POST: Post = Post {
+    title: "Hello, Ramhorns!",
+    body: "This is a really simple test of the rendering!",
+};
+const REDNERED_LEN: u64 = {
+    (POST.title.len() + POST.body.len() + "<title></title><h1></h1><div></div>".len()) as u64
+};
 
 #[derive(Content, Serialize, Template)]
 #[template(source = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{body|safe}}</div>", ext = "html")]
@@ -32,191 +40,187 @@ struct Post<'a> {
 }
 
 #[bench]
-fn xa_ramhorns_parse(b: &mut Bencher) {
+fn a_simple_ramhorns(b: &mut Bencher) {
     use ramhorns::Template;
 
-    b.bytes = POSTS.len() as u64;
+    let tpl = Template::new(SOURCE).unwrap();
+    let post = POST;
+    b.bytes = REDNERED_LEN;
 
     b.iter(|| {
-        black_box(Template::new(POSTS).unwrap());
+        black_box(tpl.render(&post))
     });
 }
 
 #[bench]
-fn xb_mustache_parse(b: &mut Bencher) {
-    b.bytes = POSTS.len() as u64;
+fn b_simple_askama(b: &mut Bencher) {
+    use askama::Template;
+
+    let post = POST;
+    b.bytes = REDNERED_LEN;
 
     b.iter(|| {
-        black_box(mustache::compile_str(POSTS).unwrap())
+        black_box(post.render())
     });
 }
 
-// #[bench]
-// fn a_simple_ramhorns(b: &mut Bencher) {
-//     use ramhorns::Template;
+#[bench]
+fn c_simple_tera(b: &mut Bencher) {
+    use tera::{Tera, Context};
 
-//     let tpl = Template::new(SOURCE).unwrap();
-//     let post = Post {
-//         title: "Hello, Ramhorns!",
-//         body: "This is a really simple test of the rendering!",
-//     };
+    let mut tera = Tera::new("templates/includes/*").unwrap();
 
-//     b.iter(|| {
-//         black_box(tpl.render(&post))
-//     });
-// }
+    tera.add_raw_template("t1", "<title>{{title}}</title><h1>{{ title }}</h1><div>{{body|safe}}</div>").unwrap();
 
-// #[bench]
-// fn b_simple_askama(b: &mut Bencher) {
-//     use askama::Template;
+    let post = POST;
+    let post = Context::from_serialize(&post).unwrap();
 
-//     let post = Post {
-//         title: "Hello, Ramhorns!",
-//         body: "This is a really simple test of the rendering!",
-//     };
+    b.bytes = REDNERED_LEN;
 
-//     b.iter(|| {
-//         black_box(post.render())
-//     });
-// }
+    b.iter(|| {
+        black_box(tera.render("t1", &post).unwrap())
+    });
+}
 
-// #[bench]
-// fn c_simple_tera(b: &mut Bencher) {
-//     use tera::{Tera, Context};
+#[bench]
+fn c_simple_tera_from_serialize(b: &mut Bencher) {
+    use tera::{Tera, Context};
 
-//     let mut tera = Tera::new("templates/includes/*").unwrap();
+    let mut tera = Tera::new("templates/includes/*").unwrap();
 
-//     tera.add_raw_template("t1", "<title>{{title}}</title><h1>{{ title }}</h1><div>{{body|safe}}</div>").unwrap();
+    tera.add_raw_template("t1", "<title>{{title}}</title><h1>{{ title }}</h1><div>{{body|safe}}</div>").unwrap();
 
-//     let post = Post {
-//         title: "Hello, Ramhorns!",
-//         body: "This is a really simple test of the rendering!",
-//     };
-//     let post = Context::from_serialize(&post).unwrap();
+    let post = POST;
+    b.bytes = REDNERED_LEN;
 
-//     b.iter(|| {
-//         black_box(tera.render("t1", &post).unwrap())
-//     });
-// }
+    b.iter(|| {
+        black_box(tera.render("t1", &Context::from_serialize(&post).unwrap()).unwrap())
+    });
+}
 
-// #[bench]
-// fn c_simple_tera_from_serialize(b: &mut Bencher) {
-//     use tera::{Tera, Context};
+#[bench]
+fn d_simple_mustache(b: &mut Bencher) {
+    let tpl = mustache::compile_str(SOURCE).unwrap();
 
-//     let mut tera = Tera::new("templates/includes/*").unwrap();
+    let post = POST;
+    b.bytes = REDNERED_LEN;
 
-//     tera.add_raw_template("t1", "<title>{{title}}</title><h1>{{ title }}</h1><div>{{body|safe}}</div>").unwrap();
+    b.iter(|| {
+        black_box(tpl.render_to_string(&post))
+    });
+}
 
-//     let post = Post {
-//         title: "Hello, Ramhorns!",
-//         body: "This is a really simple test of the rendering!",
-//     };
-//     // let post = Context::from_serialize(&post).unwrap();
+#[bench]
+fn e_simple_handlebars(b: &mut Bencher) {
+    use handlebars::Handlebars;
 
-//     b.iter(|| {
-//         black_box(tera.render("t1", &Context::from_serialize(&post).unwrap()).unwrap())
-//     });
-// }
+    let mut handlebars = Handlebars::new();
 
-// #[bench]
-// fn d_simple_mustache(b: &mut Bencher) {
-//     let tpl = mustache::compile_str(SOURCE).unwrap();
+    handlebars.register_template_string("t1", SOURCE).unwrap();
 
-//     let post = Post {
-//         title: "Hello, Ramhorns!",
-//         body: "This is a really simple test of the rendering!",
-//     };
+    let post = POST;
+    b.bytes = REDNERED_LEN;
 
-//     b.iter(|| {
-//         black_box(tpl.render_to_string(&post))
-//     });
-// }
+    b.iter(|| {
+        black_box(handlebars.render("t1", &post))
+    });
+}
 
-// #[bench]
-// fn e_simple_handlebars(b: &mut Bencher) {
-//     use handlebars::Handlebars;
+#[bench]
+fn pa_partials_ramhorns(b: &mut Bencher) {
+    use ramhorns::Ramhorns;
 
-//     let mut handlebars = Handlebars::new();
+    let mut tpls = Ramhorns::lazy("templates").unwrap();
+    let tpl = tpls.from_file("basic.html").unwrap();
+    let post = POST;
+    b.bytes = REDNERED_LEN;
 
-//     handlebars.register_template_string("t1", SOURCE).unwrap();
+    b.iter(|| {
+        black_box(tpl.render(&post))
+    });
+}
 
-//     let post = Post {
-//         title: "Hello, Ramhorns!",
-//         body: "This is a really simple test of the rendering!",
-//     };
+#[bench]
+fn pb_partials_askama(b: &mut Bencher) {
+    use askama::Template;
 
-//     b.iter(|| {
-//         black_box(handlebars.render("t1", &post))
-//     });
-// }
+    #[derive(Template)]
+    #[template(path = "askama.html")]
+    struct Post<'a> {
+        title: &'a str,
+        body: &'a str,
+    }
 
-// #[bench]
-// fn pa_partials_ramhorns(b: &mut Bencher) {
-//     use ramhorns::Ramhorns;
+    let post = Post {
+        title: "Hello, Ramhorns!",
+        body: "This is a really simple test of the rendering!",
+    };
+    b.bytes = REDNERED_LEN;
 
-//     let mut tpls = Ramhorns::lazy("templates").unwrap();
-//     let tpl = tpls.from_file("basic.html").unwrap();
-//     let post = Post {
-//         title: "Hello, Ramhorns!",
-//         body: "This is a really simple test of the rendering!",
-//     };
+    b.iter(|| {
+        black_box(post.render())
+    });
+}
 
-//     b.iter(|| {
-//         black_box(tpl.render(&post))
-//     });
-// }
+#[bench]
+fn pc_partials_mustache(b: &mut Bencher) {
+    let tpl = mustache::compile_path("templates/bench.moustache").unwrap();
 
-// #[bench]
-// fn pb_partials_askama(b: &mut Bencher) {
-//     use askama::Template;
+    let post = POST;
+    b.bytes = REDNERED_LEN;
 
-//     #[derive(Template)]
-//     #[template(path = "askama.html")]
-//     struct Post<'a> {
-//         title: &'a str,
-//         body: &'a str,
-//     }
+    b.iter(|| {
+        black_box(tpl.render_to_string(&post))
+    });
+}
 
-//     let post = Post {
-//         title: "Hello, Ramhorns!",
-//         body: "This is a really simple test of the rendering!",
-//     };
+#[bench]
+fn pd_partials_handlebars(b: &mut Bencher) {
+    use handlebars::Handlebars;
 
-//     b.iter(|| {
-//         black_box(post.render())
-//     });
-// }
+    let mut handlebars = Handlebars::new();
 
-// #[bench]
-// fn pc_partials_mustache(b: &mut Bencher) {
-//     let tpl = mustache::compile_path("templates/bench.moustache").unwrap();
+    handlebars.register_template_file("t1", "templates/basic.html").unwrap();
+    handlebars.register_template_file("head.rh", "templates/head.html").unwrap();
+    handlebars.register_template_file("footer.rh", "templates/footer.html").unwrap();
 
-//     let post = Post {
-//         title: "Hello, Ramhorns!",
-//         body: "This is a really simple test of the rendering!",
-//     };
+    let post = POST;
+    b.bytes = REDNERED_LEN;
 
-//     b.iter(|| {
-//         black_box(tpl.render_to_string(&post))
-//     });
-// }
+    b.iter(|| {
+        black_box(handlebars.render("t1", &post))
+    });
+}
 
-// #[bench]
-// fn pd_partials_handlebars(b: &mut Bencher) {
-//     use handlebars::Handlebars;
+#[bench]
+fn xa_parse_ramhorns(b: &mut Bencher) {
+    use ramhorns::Template;
 
-//     let mut handlebars = Handlebars::new();
+    b.bytes = PARSE.len() as u64;
 
-//     handlebars.register_template_file("t1", "templates/basic.html").unwrap();
-//     handlebars.register_template_file("head.rh", "templates/head.html").unwrap();
-//     handlebars.register_template_file("footer.rh", "templates/footer.html").unwrap();
+    b.iter(|| {
+        black_box(Template::new(PARSE).unwrap());
+    });
+}
 
-//     let post = Post {
-//         title: "Hello, Ramhorns!",
-//         body: "This is a really simple test of the rendering!",
-//     };
+#[bench]
+fn xb_parse_mustache(b: &mut Bencher) {
+    b.bytes = PARSE.len() as u64;
 
-//     b.iter(|| {
-//         black_box(handlebars.render("t1", &post))
-//     });
-// }
+    b.iter(|| {
+        black_box(mustache::compile_str(PARSE).unwrap())
+    });
+}
+
+#[bench]
+fn xe_parse_handlebars(b: &mut Bencher) {
+    use handlebars::Handlebars;
+
+    b.bytes = PARSE.len() as u64;
+
+    b.iter(|| {
+        let mut handlebars = Handlebars::new();
+
+        black_box(handlebars.register_template_string("t1", SOURCE).unwrap());
+    });
+}
