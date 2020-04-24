@@ -1,4 +1,4 @@
-use ramhorns::{Content, Template, Ramhorns};
+use ramhorns::{Content, Ramhorns, Template};
 
 #[derive(Content)]
 struct Post<'a> {
@@ -531,6 +531,26 @@ fn struct_with_many_types() {
     });
 
     assert_eq!(rendered, "This requires nothing but Name.");
+}
+
+#[test]
+fn derive_attributes() {
+    #[derive(Content)]
+    struct Post<'a> {
+        #[ramhorns(skip)]
+        _title: &'a str,
+        #[ramhorns(rename = "head")]
+        body: &'a str,
+    }
+
+    let tpl = Template::new("<h1>{{_title}}</h1><head>{{head}}</head>").unwrap();
+
+    let html = tpl.render(&Post {
+        _title: "This is the title",
+        body: "This is actually head!",
+    });
+
+    assert_eq!(html, "<h1></h1><head>This is actually head!</head>");
 }
 
 #[test]
