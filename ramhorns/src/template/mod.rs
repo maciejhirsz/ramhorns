@@ -49,10 +49,9 @@ impl<'tpl> Template<'tpl> {
         Template::load(source, &mut NoPartials)
     }
 
-    pub(crate) fn load<S, T>(source: S, partials: &mut T) -> Result<Self, Error>
+    pub(crate) fn load<S>(source: S, partials: &mut dyn Partials<'tpl>) -> Result<Self, Error>
     where
         S: Into<Cow<'tpl, str>>,
-        T: Partials<'tpl>,
     {
         let source = source.into();
 
@@ -63,20 +62,12 @@ impl<'tpl> Template<'tpl> {
         };
 
         let mut tpl = Template {
-            blocks: Vec::new(),
+            blocks: Vec::with_capacity(16),
             capacity_hint: 0,
             source,
         };
 
-        let mut iter = unsafe_source
-            .as_bytes()
-            .windows(2)
-            .map(|w| [w[0], w[1]])
-            .enumerate();
-
-        let mut last = 0;
-
-        tpl.parse(unsafe_source, &mut iter, &mut last, None, partials)?;
+        let last = tpl.parse(unsafe_source, partials)?;
         let tail = &unsafe_source[last..].trim_end();
         tpl.blocks.push(Block::new(tail, "", Tag::Tail));
         tpl.capacity_hint += tail.len();
@@ -143,10 +134,10 @@ pub enum Tag {
     Unescaped,
 
     /// `{{#section}}` opening tag (with number of subsequent blocks it contains)
-    Section(u32),
+    Section,
 
     /// `{{^inverse}}` section opening tag (with number of subsequent blocks it contains)
-    Inverse(u32),
+    Inverse,
 
     /// `{{/closing}}` section tag
     Closing,
@@ -167,6 +158,7 @@ pub(crate) struct Block<'tpl> {
     name: &'tpl str,
     hash: u64,
     tag: Tag,
+    children: u32,
 }
 
 impl<'tpl> Block<'tpl> {
@@ -182,6 +174,7 @@ impl<'tpl> Block<'tpl> {
             name,
             hash,
             tag,
+            children: 0,
         }
     }
 }
@@ -197,6 +190,13 @@ impl<'tpl> Partials<'tpl> for NoPartials {
 #[cfg(test)]
 mod test {
     use super::*;
+    use pretty_assertions::assert_eq;
+
+    impl Block<'_> {
+        fn children(self, children: u32) -> Self {
+            Block { children, ..self }
+        }
+    }
 
     #[test]
     fn template_from_string_is_static() {
@@ -214,6 +214,7 @@ mod test {
                 name: "test",
                 hash: 0xf9e6e6ef197c2b25,
                 tag: Tag::Escaped,
+                children: 0,
             }
         );
     }
@@ -243,10 +244,10 @@ mod test {
             &tpl.blocks,
             &[
                 Block::new("<body><h1>", "title", Tag::Escaped),
-                Block::new("</h1>", "posts", Tag::Section(2)),
+                Block::new("</h1>", "posts", Tag::Section).children(2),
                 Block::new("<article>", "name", Tag::Escaped),
                 Block::new("</article>", "posts", Tag::Closing),
-                Block::new("", "posts", Tag::Inverse(1)),
+                Block::new("", "posts", Tag::Inverse).children(1),
                 Block::new("<p>Nothing here :(</p>", "posts", Tag::Closing),
                 Block::new("</body>", "", Tag::Tail),
             ]

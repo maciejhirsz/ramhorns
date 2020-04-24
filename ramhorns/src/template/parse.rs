@@ -7,116 +7,140 @@
 // You should have received a copy of the GNU General Public License
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
+use logos::Logos;
+use arrayvec::ArrayVec;
+
 use crate::Partials;
 use super::{Block, Error, Tag, Template};
 
-const OPEN: [u8; 2] = *b"{{";
-const CLOSE: [u8; 2] = *b"}}";
+#[derive(Logos)]
+#[logos(extras = Braces)]
+enum Opening {
+    #[token("{{", |_| Tag::Escaped)]
+    #[token("{{&", |_| Tag::Unescaped)]
+    #[token("{{{", |lex| {
+        // Flag that we will expect 3 closing braces
+        lex.extras = Braces::Three;
+
+        Tag::Unescaped
+    })]
+    #[token("{{#", |_| Tag::Section)]
+    #[token("{{^", |_| Tag::Inverse)]
+    #[token("{{/", |_| Tag::Closing)]
+    #[token("{{>", |_| Tag::Partial)]
+    #[token("{{!", |_| Tag::Comment)]
+    Match(Tag),
+
+    #[regex(r"[^{]+", logos::skip)]
+    #[token("{", logos::skip)]
+    #[error]
+    Err,
+}
+
+#[derive(Logos)]
+#[logos(extras = Braces)]
+enum Closing {
+    #[token("}}", |lex| {
+        // Force fail the match if we expected 3 braces
+        lex.extras != Braces::Three
+    })]
+    #[token("}}}")]
+    Match,
+
+    #[regex(r"[^}]+", logos::skip)]
+    #[error]
+    Err
+}
+
+/// Marker of how many braces we expect to match
+#[derive(PartialEq, Eq, Clone, Copy)]
+enum Braces {
+    Two = 2,
+    Three = 3,
+}
+
+impl Default for Braces {
+    #[inline]
+    fn default() -> Self {
+        Braces::Two
+    }
+}
 
 impl<'tpl> Template<'tpl> {
     pub(crate) fn parse(
         &mut self,
         source: &'tpl str,
-        iter: &mut impl Iterator<Item = (usize, [u8; 2])>,
-        last: &mut usize,
-        until: Option<&'tpl str>,
-        partials: &mut impl Partials<'tpl>,
-    ) -> Result<u32, Error> {
-        let blocks_at_start = self.blocks.len();
+        partials: &mut dyn Partials<'tpl>,
+    ) -> Result<usize, Error> {
+        let mut last = 0;
+        let mut lex = Opening::lexer(source);
+        let mut stack = ArrayVec::<[usize; 16]>::new();
 
-        while let Some((start, bytes)) = iter.next() {
-            if bytes == OPEN {
-                // Skip a byte since we got a double
-                iter.next();
+        while let Some(token) = lex.next() {
+            let tag = match token {
+                Opening::Match(tag) => tag,
+                Opening::Err => return Err(Error::UnclosedTag),
+            };
 
-                let mut tag = Tag::Escaped;
-                let mut start_skip = 2;
-                let mut end_skip = 2;
+            // Grab HTML from before the token
+            // TODO: add lex.before() that yields source slice
+            // in front of the token:
+            //
+            // let html = &lex.before()[last..];
+            let html = &lex.source()[last..lex.span().start];
+            self.capacity_hint += html.len();
+            last = lex.span().end;
 
-                while let Some((_, bytes)) = iter.next() {
-                    match bytes[0] {
-                        b'{' => {
-                            tag = Tag::Unescaped;
-                            end_skip = 3;
-                        }
-                        b'#' => tag = Tag::Section(0),
-                        b'^' => tag = Tag::Inverse(0),
-                        b'/' => tag = Tag::Closing,
-                        b'!' => tag = Tag::Comment,
-                        b'&' => tag = Tag::Unescaped,
-                        b'>' => tag = Tag::Partial,
-                        b' ' | b'\t' | b'\r' | b'\n' => {
-                            start_skip += 1;
-                            continue;
-                        }
-                        _ => break,
-                    }
+            // Morphing the lexer to match the closing
+            // braces and grab the name
+            let mut closing = lex.morph();
 
-                    start_skip += 1;
+            match closing.next() {
+                Some(Closing::Match) => (),
+                _ => return Err(Error::UnclosedTag),
+            };
 
-                    break;
+            // Ditto about lex.before()
+            let name = source[last..closing.span().start].trim();
+
+            // Add the number of braces that we were expecting,
+            // not the number we got:
+            //
+            // `{{foo}}}` should not consume the last `}`
+            last = closing.span().start + closing.extras as usize;
+            lex = closing.morph();
+            lex.extras = Braces::Two;
+
+            // Push a new block
+            let tail_idx = self.blocks.len();
+            let block = Block::new(html, name, tag);
+            let hash = block.hash;
+
+            self.blocks.push(block);
+
+            match tag {
+                Tag::Section | Tag::Inverse => {
+                    stack.try_push(tail_idx)?;
                 }
+                Tag::Closing => {
+                    let head_idx = stack.pop().ok_or_else(|| Error::UnopenedSection(name.into()))?;
+                    let head = &mut self.blocks[head_idx];
 
-                let html = &source[*last..start];
+                    head.children = (tail_idx - head_idx) as u32;
 
-                loop {
-                    if let (end, CLOSE) = iter.next().ok_or_else(|| Error::UnclosedTag)? {
-                        // Skip the braces
-                        if end_skip == 3 {
-                            match iter.next() {
-                                Some((_, CLOSE)) => {}
-                                _ => return Err(Error::UnclosedTag),
-                            }
-                        }
-
-                        iter.next();
-
-                        let name = source[start + start_skip..end].trim();
-
-                        *last = end + end_skip;
-
-                        let insert_index = self.blocks.len();
-
-                        self.capacity_hint += html.len();
-                        self.blocks
-                            .insert(insert_index, Block::new(html, name, tag));
-
-                        match tag {
-                            Tag::Section(_) | Tag::Inverse(_) => {
-                                let count = self.parse(source, iter, last, Some(name), partials)?;
-
-                                match self.blocks[insert_index].tag {
-                                    Tag::Section(ref mut c) | Tag::Inverse(ref mut c) => *c = count,
-                                    _ => {}
-                                }
-                            }
-                            Tag::Closing => {
-                                if let Some(until) = until {
-                                    if until != name {
-                                        return Err(Error::UnclosedSection(until.into()));
-                                    }
-                                }
-
-                                return Ok((self.blocks.len() - blocks_at_start) as u32);
-                            }
-                            Tag::Partial => {
-                                let partial = partials.get_partial(name)?;
-                                self.blocks.extend(&partial.blocks);
-                                self.capacity_hint += partial.capacity_hint;
-                            }
-                            _ => {}
-                        };
-
-                        break;
+                    if head.hash != hash {
+                        return Err(Error::UnclosedSection(head.name.into()));
                     }
                 }
-            }
+                Tag::Partial => {
+                    let partial = partials.get_partial(name)?;
+                    self.blocks.extend_from_slice(&partial.blocks);
+                    self.capacity_hint += partial.capacity_hint;
+                }
+                _ => {}
+            };
         }
 
-        if let Some(until) = until {
-            return Err(Error::UnclosedSection(until.into()));
-        }
-
-        Ok((self.blocks.len() - blocks_at_start) as u32)
+        Ok(last)
     }
 }

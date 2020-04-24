@@ -79,23 +79,23 @@ where
                 Tag::Unescaped => {
                     self.contents.render_field_unescaped(block.hash, block.name, encoder)?;
                 }
-                Tag::Section(count) => {
+                Tag::Section => {
                     self.contents.render_field_section(
                         block.hash,
                         block.name,
-                        self.slice(index..index + count as usize),
+                        self.slice(index..index + block.children as usize),
                         encoder,
                     )?;
-                    index += count as usize;
+                    index += block.children as usize;
                 }
-                Tag::Inverse(count) => {
+                Tag::Inverse => {
                     self.contents.render_field_inverse(
                         block.hash,
                         block.name,
-                        self.slice(index..index + count as usize),
+                        self.slice(index..index + block.children as usize),
                         encoder,
                     )?;
-                    index += count as usize;
+                    index += block.children as usize;
                 }
                 _ => {}
             }
