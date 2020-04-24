@@ -19,7 +19,6 @@ impl<'tpl> Template<'tpl> {
         source: &'tpl str,
         iter: &mut impl Iterator<Item = (usize, [u8; 2])>,
         last: &mut usize,
-        until: Option<&'tpl str>,
         partials: &mut impl Partials<'tpl>,
     ) -> Result<u32, Error> {
         let blocks_at_start = self.blocks.len();
@@ -39,8 +38,8 @@ impl<'tpl> Template<'tpl> {
                             tag = Tag::Unescaped;
                             end_skip = 3;
                         }
-                        b'#' => tag = Tag::Section(0),
-                        b'^' => tag = Tag::Inverse(0),
+                        b'#' => tag = Tag::Section,
+                        b'^' => tag = Tag::Inverse,
                         b'/' => tag = Tag::Closing,
                         b'!' => tag = Tag::Comment,
                         b'&' => tag = Tag::Unescaped,
@@ -58,6 +57,7 @@ impl<'tpl> Template<'tpl> {
                 }
 
                 let html = &source[*last..start];
+                self.capacity_hint += html.len();
 
                 loop {
                     if let (end, CLOSE) = iter.next().ok_or_else(|| Error::UnclosedTag)? {
@@ -77,26 +77,23 @@ impl<'tpl> Template<'tpl> {
 
                         let insert_index = self.blocks.len();
 
-                        self.capacity_hint += html.len();
-                        self.blocks
-                            .insert(insert_index, Block::new(html, name, tag));
+                        self.blocks.push(Block::new(html, name, tag));
 
                         match tag {
-                            Tag::Section(_) | Tag::Inverse(_) => {
-                                let count = self.parse(source, iter, last, Some(name), partials)?;
+                            Tag::Section | Tag::Inverse => {
+                                let count = self.parse(source, iter, last, partials)?;
 
-                                match self.blocks[insert_index].tag {
-                                    Tag::Section(ref mut c) | Tag::Inverse(ref mut c) => *c = count,
-                                    _ => {}
+                                let this = &mut self.blocks[insert_index];
+                                let hash = this.hash;
+                                this.children = count;
+
+                                if let Some(last) = self.blocks.last() {
+                                    if last.hash != hash {
+                                        return Err(Error::UnclosedSection(name.into()));
+                                    }
                                 }
                             }
                             Tag::Closing => {
-                                if let Some(until) = until {
-                                    if until != name {
-                                        return Err(Error::UnclosedSection(until.into()));
-                                    }
-                                }
-
                                 return Ok((self.blocks.len() - blocks_at_start) as u32);
                             }
                             Tag::Partial => {
@@ -111,10 +108,6 @@ impl<'tpl> Template<'tpl> {
                     }
                 }
             }
-        }
-
-        if let Some(until) = until {
-            return Err(Error::UnclosedSection(until.into()));
         }
 
         Ok((self.blocks.len() - blocks_at_start) as u32)
