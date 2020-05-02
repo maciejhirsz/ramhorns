@@ -33,7 +33,6 @@ type UnitFields = Punctuated<syn::Field, Comma>;
 
 struct Field {
     hash: u64,
-    name: String,
     field: TokenStream2,
     method: Option<TokenStream2>,
 }
@@ -77,13 +76,13 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
         _ => unit_fields.iter(),
     };
 
+    let mut flatten = Vec::new();
     let mut fields = fields
         .enumerate()
         .filter_map(|(index, field)| {
             let mut method = None;
             let mut rename = None;
             let mut skip = false;
-            let mut flatten = false;
 
             let mut parse_attr = |attr: &Attribute| -> Result<(), Error> {
                 use syn::{spanned::Spanned, Lit, Meta, MetaNameValue, NestedMeta};
@@ -98,7 +97,21 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                                     skip = true;
                                 }
                                 NestedMeta::Meta(Meta::Path(path)) if path.is_ident("flatten") => {
-                                    flatten = true;
+                                    flatten.push(field.ident.as_ref().map_or_else(
+                                        || {
+                                            use proc_macro2::Span;
+                                            use syn::LitInt;
+
+                                            let index = index.to_string();
+                                            let lit = LitInt::new(&index, Span::call_site());
+
+                                            quote!(#lit)
+                                        },
+                                        |ident| {
+                                            quote!(#ident)
+                                        })
+                                    );
+                                    skip = true;
                                 }
                                 NestedMeta::Meta(Meta::NameValue(MetaNameValue {
                                     path,
@@ -156,7 +169,6 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
             let hash = hasher.finish();
 
             Some(Field {
-                name,
                 field,
                 hash,
                 method,
@@ -175,6 +187,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
     }
 
     fields.sort_unstable();
+
 
     let render_escaped = quote!(render_escaped);
     let render_field_escaped = fields.iter().map(|Field { field, hash, method, .. }| {
@@ -206,6 +219,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
         }
     });
 
+    let flatten = &*flatten;
     let fields = fields.iter().map(|Field { field, .. }| field);
 
     // FIXME: decouple lifetimes from actual generics with trait boundaries
@@ -226,46 +240,58 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
             }
 
             #[inline]
-            fn render_field_escaped<E>(&self, hash: u64, _: &str, encoder: &mut E) -> Result<bool, E::Error>
+            fn render_field_escaped<E>(&self, hash: u64, name: &str, encoder: &mut E) -> Result<bool, E::Error>
             where
                 E: ramhorns::encoding::Encoder,
             {
                 match hash {
                     #( #render_field_escaped )*
-                    _ => Ok(false)
+                    _ => Ok(
+                        #( self.#flatten.render_field_escaped(hash, name, encoder)? ||)*
+                        false
+                    )
                 }
             }
 
             #[inline]
-            fn render_field_unescaped<E>(&self, hash: u64, _: &str, encoder: &mut E) -> Result<bool, E::Error>
+            fn render_field_unescaped<E>(&self, hash: u64, name: &str, encoder: &mut E) -> Result<bool, E::Error>
             where
                 E: ramhorns::encoding::Encoder,
             {
                 match hash {
                     #( #render_field_unescaped )*
-                    _ => Ok(false)
+                    _ => Ok(
+                        #( self.#flatten.render_field_unescaped(hash, name, encoder)? ||)*
+                        false
+                    )
                 }
             }
 
-            fn render_field_section<P, E>(&self, hash: u64, _: &str, section: ramhorns::Section<P>, encoder: &mut E) -> Result<bool, E::Error>
+            fn render_field_section<P, E>(&self, hash: u64, name: &str, section: ramhorns::Section<P>, encoder: &mut E) -> Result<bool, E::Error>
             where
                 P: ramhorns::traits::ContentSequence,
                 E: ramhorns::encoding::Encoder,
             {
                 match hash {
                     #( #render_field_section )*
-                    _ => Ok(false)
+                    _ => Ok(
+                        #( self.#flatten.render_field_section(hash, name, section, encoder)? ||)*
+                        false
+                    )
                 }
             }
 
-            fn render_field_inverse<P, E>(&self, hash: u64, _: &str, section: ramhorns::Section<P>, encoder: &mut E) -> Result<bool, E::Error>
+            fn render_field_inverse<P, E>(&self, hash: u64, name: &str, section: ramhorns::Section<P>, encoder: &mut E) -> Result<bool, E::Error>
             where
                 P: ramhorns::traits::ContentSequence,
                 E: ramhorns::encoding::Encoder,
             {
                 match hash {
                     #( #render_field_inverse )*
-                    _ => Ok(false)
+                    _ => Ok(
+                        #( self.#flatten.render_field_inverse(hash, name, section, encoder)? ||)*
+                        false
+                    )
                 }
             }
         }
