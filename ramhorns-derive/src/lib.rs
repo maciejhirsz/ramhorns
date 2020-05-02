@@ -20,14 +20,43 @@ extern crate proc_macro;
 
 use fnv::FnvHasher;
 use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
-use syn::{Attribute, Error, Field, Fields, ItemStruct};
+use syn::{Attribute, Error, Fields, ItemStruct};
 
 use std::hash::Hasher;
+use std::cmp::Ordering;
 
-type UnitFields = Punctuated<Field, Comma>;
+type UnitFields = Punctuated<syn::Field, Comma>;
+
+struct Field {
+    hash: u64,
+    name: String,
+    field: TokenStream2,
+    method: Option<TokenStream2>,
+}
+
+impl PartialEq for Field {
+    fn eq(&self, other: &Field) -> bool {
+        self.hash == other.hash
+    }
+}
+
+impl Eq for Field {}
+
+impl PartialOrd for Field {
+    fn partial_cmp(&self, other: &Field) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Field {
+    fn cmp(&self, other: &Field) -> Ordering {
+        self.hash.cmp(&other.hash)
+    }
+}
 
 #[proc_macro_derive(Content, attributes(md, ramhorns))]
 pub fn content_derive(input: TokenStream) -> TokenStream {
@@ -54,6 +83,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
             let mut method = None;
             let mut rename = None;
             let mut skip = false;
+            let mut flatten = false;
 
             let mut parse_attr = |attr: &Attribute| -> Result<(), Error> {
                 use syn::{spanned::Spanned, Lit, Meta, MetaNameValue, NestedMeta};
@@ -66,6 +96,9 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                             match nested_meta {
                                 NestedMeta::Meta(Meta::Path(path)) if path.is_ident("skip") => {
                                     skip = true;
+                                }
+                                NestedMeta::Meta(Meta::Path(path)) if path.is_ident("flatten") => {
+                                    flatten = true;
                                 }
                                 NestedMeta::Meta(Meta::NameValue(MetaNameValue {
                                     path,
@@ -96,7 +129,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                 return None;
             }
 
-            let (name, token) = field.ident.as_ref().map_or_else(
+            let (name, field) = field.ident.as_ref().map_or_else(
                 || {
                     use proc_macro2::Span;
                     use syn::LitInt;
@@ -122,7 +155,12 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
 
             let hash = hasher.finish();
 
-            Some((name, token, hash, method))
+            Some(Field {
+                name,
+                field,
+                hash,
+                method,
+            })
         })
         .collect::<Vec<_>>();
 
@@ -136,10 +174,10 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
         .into();
     }
 
-    fields.sort_unstable_by_key(|&(_, _, hash, _)| hash);
+    fields.sort_unstable();
 
     let render_escaped = quote!(render_escaped);
-    let render_field_escaped = fields.iter().map(|(_, field, hash, method)| {
+    let render_field_escaped = fields.iter().map(|Field { field, hash, method, .. }| {
         let method = method.as_ref().unwrap_or(&render_escaped);
 
         quote! {
@@ -148,7 +186,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
     });
 
     let render_unescaped = quote!(render_unescaped);
-    let render_field_unescaped = fields.iter().map(|(_, field, hash, method)| {
+    let render_field_unescaped = fields.iter().map(|Field { field, hash, method, .. }| {
         let method = method.as_ref().unwrap_or(&render_unescaped);
 
         quote! {
@@ -156,19 +194,19 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
         }
     });
 
-    let render_field_section = fields.iter().map(|(_, field, hash, _)| {
+    let render_field_section = fields.iter().map(|Field { field, hash, .. }| {
         quote! {
             #hash => self.#field.render_section(section, encoder).map(|_| true),
         }
     });
 
-    let render_field_inverse = fields.iter().map(|(_, field, hash, _)| {
+    let render_field_inverse = fields.iter().map(|Field { field, hash, .. }| {
         quote! {
             #hash => self.#field.render_inverse(section, encoder).map(|_| true),
         }
     });
 
-    let fields = fields.iter().map(|(_, field, _, _)| field);
+    let fields = fields.iter().map(|Field { field, .. }| field);
 
     // FIXME: decouple lifetimes from actual generics with trait boundaries
     let tokens = quote! {

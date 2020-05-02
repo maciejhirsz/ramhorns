@@ -554,6 +554,32 @@ fn derive_attributes() {
 }
 
 #[test]
+fn derive_flatten() {
+    #[derive(Content)]
+    pub struct Parent<'a> {
+        title: &'a str,
+        #[ramhorns(flatten)]
+        child: Child<'a>,
+    }
+
+    #[derive(Content)]
+    pub struct Child<'a> {
+        body: &'a str,
+    }
+
+    let tpl = Template::new("<h1>{{title}}</h1><head>{{body}}</head>").unwrap();
+
+    let html = tpl.render(&Parent {
+        title: "This is the title",
+        child: Child {
+            body: "This is the body",
+        }
+    });
+
+    assert_eq!(html, "<h1>This is the title</h1><head>This is the body</head>");
+}
+
+#[test]
 fn simple_partials() {
     let mut tpls = Ramhorns::lazy("templates").unwrap();
     let tpl = tpls.from_file("layout.html").unwrap();
