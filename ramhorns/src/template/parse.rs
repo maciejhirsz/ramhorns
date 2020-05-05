@@ -70,7 +70,7 @@ impl<'tpl> Template<'tpl> {
     pub(crate) fn parse(
         &mut self,
         source: &'tpl str,
-        partials: &mut dyn Partials<'tpl>,
+        partials: &mut impl Partials<'tpl>,
     ) -> Result<usize, Error> {
         let mut last = 0;
         let mut lex = Opening::lexer(source);

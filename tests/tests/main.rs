@@ -534,6 +534,39 @@ fn struct_with_many_types() {
 }
 
 #[test]
+fn struct_with_many_sections() {
+    #[derive(Content)]
+    struct A(u8);
+    #[derive(Content)]
+    struct B(f64);
+    #[derive(Content)]
+    struct C(&'static str);
+    #[derive(Content)]
+    struct D(bool);
+
+    #[derive(Content)]
+    struct Page {
+        a: A,
+        b: B,
+        c: C,
+        d: D,
+        other: &'static [Page],
+    }
+
+    let tpl = Template::new("<h1>{{#d}}{{#0}}{{#c}}{{0}}{{/c}}{{/0}}{{/d}} world!</h1>").unwrap();
+    
+    let rendered = tpl.render(&Page {
+        a: A(1),
+        b: B(2.0),
+        c: C("Hello"),
+        d: D(true),
+        other: &[]
+    });
+
+    assert_eq!(rendered, "<h1>Hello world!</h1>");
+}
+
+#[test]
 fn derive_attributes() {
     #[derive(Content)]
     struct Post<'a> {
