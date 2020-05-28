@@ -49,7 +49,7 @@ impl<'tpl> Template<'tpl> {
         Template::load(source, &mut NoPartials)
     }
 
-    pub(crate) fn load<S>(source: S, partials: &mut dyn Partials<'tpl>) -> Result<Self, Error>
+    pub(crate) fn load<S>(source: S, partials: &mut impl Partials<'tpl>) -> Result<Self, Error>
     where
         S: Into<Cow<'tpl, str>>,
     {
@@ -112,7 +112,7 @@ impl<'tpl> Template<'tpl> {
         C: Content,
     {
         use io::BufWriter;
-
+        
         let writer = BufWriter::new(File::create(path)?);
         let mut encoder = EscapingIOEncoder::new(writer);
 

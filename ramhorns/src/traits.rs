@@ -24,8 +24,14 @@ pub trait Combine {
     /// Third type for the result tuple
     type K: Content + Copy + Sized;
 
+    /// Type when we crawl back one item
+    type Previous: ContentSequence;
+
     /// Combines current tuple with a new element.
     fn combine<X: Content + ?Sized>(self, other: &X) -> (Self::I, Self::J, Self::K, &X);
+
+    /// Crawl back to the previous tuple
+    fn crawl_back(self) -> Self::Previous;
 }
 
 /// Helper trait that re-exposes `render_field_x` methods of a `Content` trait,
@@ -34,33 +40,30 @@ pub trait ContentSequence: Combine + Sized + Copy {
     /// Render a field by the hash **or** string of its name.
     ///
     /// This will escape HTML characters, eg: `<` will become `&lt;`.
-    /// If successful, returns `true` if the field exists in this content, otherwise `false`.
     #[inline]
     fn render_field_escaped<E: Encoder>(
         &self,
         _hash: u64,
         _name: &str,
         _encoder: &mut E,
-    ) -> Result<bool, E::Error> {
-        Ok(false)
+    ) -> Result<(), E::Error> {
+        Ok(())
     }
 
     /// Render a field by the hash **or** string of its name.
     ///
     /// This doesn't perform any escaping at all.
-    /// If successful, returns `true` if the field exists in this content, otherwise `false`.
     #[inline]
     fn render_field_unescaped<E: Encoder>(
         &self,
         _hash: u64,
         _name: &str,
         _encoder: &mut E,
-    ) -> Result<bool, E::Error> {
-        Ok(false)
+    ) -> Result<(), E::Error> {
+        Ok(())
     }
 
     /// Render a field by the hash **or** string of its name, as a section.
-    /// If successful, returns `true` if the field exists in this content, otherwise `false`.
     #[inline]
     fn render_field_section<'section, P, E>(
         &self,
@@ -68,16 +71,15 @@ pub trait ContentSequence: Combine + Sized + Copy {
         _name: &str,
         _section: Section<'section, P>,
         _encoder: &mut E,
-    ) -> Result<bool, E::Error>
+    ) -> Result<(), E::Error>
     where
         P: ContentSequence,
         E: Encoder,
     {
-        Ok(false)
+        Ok(())
     }
 
     /// Render a field, by the hash of **or** string its name, as an inverse section.
-    /// If successful, returns `true` if the field exists in this content, otherwise `false`.
     #[inline]
     fn render_field_inverse<'section, P, E>(
         &self,
@@ -85,12 +87,12 @@ pub trait ContentSequence: Combine + Sized + Copy {
         _name: &str,
         _section: Section<'section, P>,
         _encoder: &mut E,
-    ) -> Result<bool, E::Error>
+    ) -> Result<(), E::Error>
     where
         P: ContentSequence,
         E: Encoder,
     {
-        Ok(false)
+        Ok(())
     }
 }
 
@@ -98,38 +100,48 @@ impl Combine for () {
     type I = ();
     type J = ();
     type K = ();
+    type Previous = ();
 
     #[inline]
     fn combine<X: Content + ?Sized>(self, other: &X) -> ((), (), (), &X) {
         ((), (), (), other)
     }
+
+    #[inline]
+    fn crawl_back(self) -> Self::Previous {}
 }
 
 impl ContentSequence for () {}
 
-impl<'tup, A, B, C, D> Combine for (A, B, C, &'tup D)
+impl<A, B, C, D> Combine for (A, B, C, D)
 where
-    A: Content + Copy + Sized,
-    B: Content + Copy + Sized,
-    C: Content + Copy + Sized,
-    D: Content + ?Sized,
+    A: Content + Copy,
+    B: Content + Copy,
+    C: Content + Copy,
+    D: Content + Copy,
 {
     type I = B;
     type J = C;
-    type K = &'tup D;
+    type K = D;
+    type Previous = ((), A, B, C);
 
     #[inline]
-    fn combine<X: Content + ?Sized>(self, other: &X) -> (B, C, &'tup D, &X) {
+    fn combine<X: Content + ?Sized>(self, other: &X) -> (B, C, D, &X) {
         (self.1, self.2, self.3, other)
+    }
+
+    #[inline]
+    fn crawl_back(self) -> ((), A, B, C) {
+        ((), self.0, self.1, self.2)
     }
 }
 
-impl<A, B, C, D> ContentSequence for (A, B, C, &D)
+impl<A, B, C, D> ContentSequence for (A, B, C, D)
 where
-    A: Content + Copy + Sized,
-    B: Content + Copy + Sized,
-    C: Content + Copy + Sized,
-    D: Content + ?Sized,
+    A: Content + Copy,
+    B: Content + Copy,
+    C: Content + Copy,
+    D: Content + Copy,
 {
     #[inline]
     fn render_field_escaped<E: Encoder>(
@@ -137,17 +149,15 @@ where
         hash: u64,
         name: &str,
         encoder: &mut E,
-    ) -> Result<bool, E::Error> {
-        match self.3.render_field_escaped(hash, name, encoder) {
-            Ok(false) => match self.2.render_field_escaped(hash, name, encoder) {
-                Ok(false) => match self.1.render_field_escaped(hash, name, encoder) {
-                    Ok(false) => self.0.render_field_escaped(hash, name, encoder),
-                    res => res,
-                },
-                res => res,
-            },
-            res => res,
+    ) -> Result<(), E::Error> {
+        if !self.3.render_field_escaped(hash, name, encoder)? {
+            if !self.2.render_field_escaped(hash, name, encoder)? {
+                if !self.1.render_field_escaped(hash, name, encoder)? {
+                    self.0.render_field_escaped(hash, name, encoder)?;
+                }
+            }
         }
+        Ok(())
     }
 
     #[inline]
@@ -156,17 +166,15 @@ where
         hash: u64,
         name: &str,
         encoder: &mut E,
-    ) -> Result<bool, E::Error> {
-        match self.3.render_field_unescaped(hash, name, encoder) {
-            Ok(false) => match self.2.render_field_unescaped(hash, name, encoder) {
-                Ok(false) => match self.1.render_field_unescaped(hash, name, encoder) {
-                    Ok(false) => self.0.render_field_unescaped(hash, name, encoder),
-                    res => res,
-                },
-                res => res,
+    ) -> Result<(), E::Error> {
+        if !self.3.render_field_unescaped(hash, name, encoder)? {
+            if !self.2.render_field_unescaped(hash, name, encoder)? {
+                if !self.1.render_field_unescaped(hash, name, encoder)? {
+                    self.0.render_field_unescaped(hash, name, encoder)?;
+                }
             }
-            res => res,
         }
+        Ok(())
     }
 
     #[inline]
@@ -176,21 +184,25 @@ where
         name: &str,
         section: Section<P>,
         encoder: &mut E,
-    ) -> Result<bool, E::Error>
+    ) -> Result<(), E::Error>
     where
         P: ContentSequence,
         E: Encoder,
     {
-        match self.3.render_field_section(hash, name, section, encoder) {
-            Ok(false) => match self.2.render_field_section(hash, name, section, encoder) {
-                Ok(false) => match self.1.render_field_section(hash, name, section, encoder) {
-                    Ok(false) => self.0.render_field_section(hash, name, section, encoder),
-                    res => res,
-                },
-                res => res,
-            },
-            res => res,
+        if !self.3.render_field_section(hash, name, section, encoder)? {
+            let section = section.without_last();
+            if !self.2.render_field_section(hash, name, section, encoder)? {
+                let section = section.without_last();
+                if !self.1.render_field_section(hash, name, section, encoder)? {
+                    let section = section.without_last();
+                    if !self.0.render_field_section(hash, name, section, encoder)? {
+                        let section = section.without_last();
+                        section.render(encoder)?;
+                    }
+                }
+            }
         }
+        Ok(())
     }
 
     #[inline]
@@ -200,23 +212,24 @@ where
         name: &str,
         section: Section<P>,
         encoder: &mut E,
-    ) -> Result<bool, E::Error>
+    ) -> Result<(), E::Error>
     where
         P: ContentSequence,
         E: Encoder,
     {
-        match self.3.render_field_inverse(hash, name, section, encoder) {
-            Ok(false) => match self.2.render_field_inverse(hash, name, section, encoder) {
-                Ok(false) => match self.1.render_field_inverse(hash, name, section, encoder) {
-                    Ok(false) => match self.0.render_field_inverse(hash, name, section, encoder) {
-                        Ok(false) => section.render(encoder).map(|()| true),
-                        res => res,
-                    },
-                    res => res,
-                },
-                res => res,
-            },
-            res => res,
+        if !self.3.render_field_inverse(hash, name, section, encoder)? {
+            let section = section.without_last();
+            if !self.2.render_field_inverse(hash, name, section, encoder)? {
+                let section = section.without_last();
+                if !self.1.render_field_inverse(hash, name, section, encoder)? {
+                    let section = section.without_last();
+                    if !self.0.render_field_inverse(hash, name, section, encoder)? {
+                        let section = section.without_last();
+                        section.render(encoder)?;
+                    }
+                }
+            }
         }
+        Ok(())
     }
 }

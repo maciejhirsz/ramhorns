@@ -60,6 +60,16 @@ where
         }
     }
 
+    /// The section without the last `Content` in the stack
+    #[inline]
+    pub fn without_last(self) -> Section<'section, C::Previous>
+    {
+        Section {
+            blocks: self.blocks,
+            contents: self.contents.crawl_back(),
+        }
+    }
+
     /// Render this section once to the provided `Encoder`.
     pub fn render<E>(&self, encoder: &mut E) -> Result<(), E::Error>
     where
