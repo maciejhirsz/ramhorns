@@ -195,10 +195,7 @@ where
                 let section = section.without_last();
                 if !self.1.render_field_section(hash, name, section, encoder)? {
                     let section = section.without_last();
-                    if !self.0.render_field_section(hash, name, section, encoder)? {
-                        let section = section.without_last();
-                        section.render(encoder)?;
-                    }
+                    self.0.render_field_section(hash, name, section, encoder)?;
                 }
             }
         }
