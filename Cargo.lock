@@ -591,7 +591,7 @@ dependencies = [
 
 [[package]]
 name = "ramhorns"
-version = "0.9.4"
+version = "0.10.0"
 dependencies = [
  "ahash",
  "arrayvec",
@@ -605,7 +605,7 @@ dependencies = [
 
 [[package]]
 name = "ramhorns-derive"
-version = "0.9.4"
+version = "0.10.0"
 dependencies = [
  "fnv",
  "proc-macro2",
