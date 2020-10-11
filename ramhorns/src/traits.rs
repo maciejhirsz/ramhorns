@@ -215,11 +215,8 @@ where
         E: Encoder,
     {
         if !self.3.render_field_inverse(hash, name, section, encoder)? {
-            let section = section.without_last();
             if !self.2.render_field_inverse(hash, name, section, encoder)? {
-                let section = section.without_last();
                 if !self.1.render_field_inverse(hash, name, section, encoder)? {
-                    let section = section.without_last();
                     if !self.0.render_field_inverse(hash, name, section, encoder)? {
                         section.render(encoder)?;
                     }
