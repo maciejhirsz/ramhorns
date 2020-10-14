@@ -231,7 +231,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
             }
 
             #[inline]
-            fn render_section<C, E>(&self, section: ramhorns::Section<C>, encoder: &mut E) -> Result<(), E::Error>
+            fn render_section<C, E>(&self, section: ramhorns::Section<C>, encoder: &mut E) -> std::result::Result<(), E::Error>
             where
                 C: ramhorns::traits::ContentSequence,
                 E: ramhorns::encoding::Encoder,
@@ -240,7 +240,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
             }
 
             #[inline]
-            fn render_field_escaped<E>(&self, hash: u64, name: &str, encoder: &mut E) -> Result<bool, E::Error>
+            fn render_field_escaped<E>(&self, hash: u64, name: &str, encoder: &mut E) -> std::result::Result<bool, E::Error>
             where
                 E: ramhorns::encoding::Encoder,
             {
@@ -254,7 +254,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
             }
 
             #[inline]
-            fn render_field_unescaped<E>(&self, hash: u64, name: &str, encoder: &mut E) -> Result<bool, E::Error>
+            fn render_field_unescaped<E>(&self, hash: u64, name: &str, encoder: &mut E) -> std::result::Result<bool, E::Error>
             where
                 E: ramhorns::encoding::Encoder,
             {
@@ -267,7 +267,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn render_field_section<P, E>(&self, hash: u64, name: &str, section: ramhorns::Section<P>, encoder: &mut E) -> Result<bool, E::Error>
+            fn render_field_section<P, E>(&self, hash: u64, name: &str, section: ramhorns::Section<P>, encoder: &mut E) -> std::result::Result<bool, E::Error>
             where
                 P: ramhorns::traits::ContentSequence,
                 E: ramhorns::encoding::Encoder,
@@ -281,7 +281,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn render_field_inverse<P, E>(&self, hash: u64, name: &str, section: ramhorns::Section<P>, encoder: &mut E) -> Result<bool, E::Error>
+            fn render_field_inverse<P, E>(&self, hash: u64, name: &str, section: ramhorns::Section<P>, encoder: &mut E) -> std::result::Result<bool, E::Error>
             where
                 P: ramhorns::traits::ContentSequence,
                 E: ramhorns::encoding::Encoder,
