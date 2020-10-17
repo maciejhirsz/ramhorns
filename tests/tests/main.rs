@@ -382,7 +382,45 @@ fn can_render_lists_from_vecs() {
 }
 
 #[test]
-fn can_render_generic_types() {
+fn can_render_nested_generic_types() {
+    #[derive(Content)]
+    struct Article {
+        title: String,
+        body: String,
+    }
+
+    #[derive(Content)]
+    struct Page<T> {
+        contents: T,
+        last_updated: String,
+    }
+
+    let tpl = Template::new(
+        "\
+        {{#contents}}\
+        <h1>{{title}}</h1>\
+        <article>{{body}}</article>\
+        {{/contents}}\
+        <p>{{last_updated}}</p>",
+    )
+    .unwrap();
+
+    let html = tpl.render(&Page {
+        last_updated: "yesterday".into(),
+        contents: Article {
+            title: "Jam".into(),
+            body: "This is an article body".into(),
+        },
+    });
+
+    assert_eq!(
+        html,
+        "<h1>Jam</h1><article>This is an article body</article><p>yesterday</p>"
+    )
+}
+
+#[test]
+fn can_render_flattened_generic_types() {
     #[derive(Content)]
     struct Article {
         title: String,
