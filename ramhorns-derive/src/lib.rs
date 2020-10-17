@@ -66,6 +66,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
 
     let name = &item.ident;
     let generics = &item.generics;
+    let type_params = item.generics.type_params();
     let unit_fields = UnitFields::new();
 
     let mut errors = Vec::new();
@@ -222,9 +223,12 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
     let flatten = &*flatten;
     let fields = fields.iter().map(|Field { field, .. }| field);
 
+    let where_clause = type_params.map(|param| quote!(#param: ::ramhorns::Content)).collect::<Vec<_>>();
+    let where_clause = if where_clause.len() > 0 { quote!(where #(#where_clause),*) } else { quote!() };
+
     // FIXME: decouple lifetimes from actual generics with trait boundaries
     let tokens = quote! {
-        impl#generics ramhorns::Content for #name#generics {
+        impl#generics ramhorns::Content for #name#generics #where_clause {
             #[inline]
             fn capacity_hint(&self, tpl: &ramhorns::Template) -> usize {
                 tpl.capacity_hint() #( + self.#fields.capacity_hint(tpl) )*

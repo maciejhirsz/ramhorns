@@ -382,6 +382,42 @@ fn can_render_lists_from_vecs() {
 }
 
 #[test]
+fn can_render_generic_types() {
+    #[derive(Content)]
+    struct Article {
+        title: String,
+        body: String,
+    }
+
+    #[derive(Content)]
+    struct Page<T> {
+        #[ramhorns(flatten)]
+        contents: T,
+        last_updated: String,
+    }
+
+    let tpl = Template::new(
+        "<h1>{{title}}</h1>\
+         <article>{{body}}</article>\
+         <p>{{last_updated}}</p>",
+    )
+    .unwrap();
+
+    let html = tpl.render(&Page {
+        last_updated: "yesterday".into(),
+        contents: Article {
+            title: "Jam".into(),
+            body: "This is an article body".into(),
+        },
+    });
+
+    assert_eq!(
+        html,
+        "<h1>Jam</h1><article>This is an article body</article><p>yesterday</p>"
+    )
+}
+
+#[test]
 fn can_render_markdown() {
     #[derive(Content)]
     struct Post<'a> {
@@ -554,13 +590,13 @@ fn struct_with_many_sections() {
     }
 
     let tpl = Template::new("<h1>{{#d}}{{#0}}{{#c}}{{0}}{{/c}}{{/0}}{{/d}} world!</h1>").unwrap();
-    
+
     let rendered = tpl.render(&Page {
         a: A(1),
         b: B(2.0),
         c: C("Hello"),
         d: D(true),
-        other: &[]
+        other: &[],
     });
 
     assert_eq!(rendered, "<h1>Hello world!</h1>");
@@ -606,10 +642,13 @@ fn derive_flatten() {
         title: "This is the title",
         child: Child {
             body: "This is the body",
-        }
+        },
     });
 
-    assert_eq!(html, "<h1>This is the title</h1><head>This is the body</head>");
+    assert_eq!(
+        html,
+        "<h1>This is the title</h1><head>This is the body</head>"
+    );
 }
 
 #[test]
