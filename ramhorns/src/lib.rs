@@ -105,7 +105,8 @@ pub struct Ramhorns {
 
 impl Ramhorns {
     /// Loads all the `.html` files as templates from the given folder, making them
-    /// accessible via their path, joining partials as required.
+    /// accessible via their path, joining partials as required. If a custom
+    /// extension is wanted, see [from_folder_with_extension]
     /// ```no_run
     /// # use ramhorns::Ramhorns;
     /// let tpls = Ramhorns::from_folder("./templates").unwrap();
@@ -116,6 +117,26 @@ impl Ramhorns {
         let mut templates = Ramhorns::lazy(dir)?;
 
         Self::load_folder(&templates.dir.clone(), "html", &mut templates)?;
+
+        Ok(templates)
+    }
+
+    /// Loads all files with the extension given in the `extension` parameter as templates
+    /// from the given folder, making them accessible via their path, joining partials as
+    /// required.
+    /// ```no_run
+    /// # use ramhorns::Ramhorns;
+    /// let tpls = Ramhorns::from_folder_with_extension("./templates", "mustache").unwrap();
+    /// let content = "I am the content";
+    /// let rendered = tpls.get("hello.mustache").unwrap().render(&content);
+    /// ```
+    pub fn from_folder_with_extension<P: AsRef<Path>>(
+        dir: P,
+        extension: &str,
+    ) -> Result<Self, Error> {
+        let mut templates = Ramhorns::lazy(dir)?;
+
+        Self::load_folder(&templates.dir.clone(), extension, &mut templates)?;
 
         Ok(templates)
     }
