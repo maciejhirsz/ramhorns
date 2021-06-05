@@ -26,8 +26,8 @@ use syn::punctuated::Punctuated;
 use syn::token::Comma;
 use syn::{Attribute, Error, Fields, ItemStruct};
 
-use std::hash::Hasher;
 use std::cmp::Ordering;
+use std::hash::Hasher;
 
 type UnitFields = Punctuated<syn::Field, Comma>;
 
@@ -108,10 +108,8 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
 
                                             quote!(#lit)
                                         },
-                                        |ident| {
-                                            quote!(#ident)
-                                        })
-                                    );
+                                        |ident| quote!(#ident),
+                                    ));
                                     skip = true;
                                 }
                                 NestedMeta::Meta(Meta::NameValue(MetaNameValue {
@@ -170,8 +168,8 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
             let hash = hasher.finish();
 
             Some(Field {
-                field,
                 hash,
+                field,
                 method,
             })
         })
@@ -189,24 +187,37 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
 
     fields.sort_unstable();
 
-
     let render_escaped = quote!(render_escaped);
-    let render_field_escaped = fields.iter().map(|Field { field, hash, method, .. }| {
-        let method = method.as_ref().unwrap_or(&render_escaped);
+    let render_field_escaped = fields.iter().map(
+        |Field {
+             field,
+             hash,
+             method,
+             ..
+         }| {
+            let method = method.as_ref().unwrap_or(&render_escaped);
 
-        quote! {
-            #hash => self.#field.#method(encoder).map(|_| true),
-        }
-    });
+            quote! {
+                #hash => self.#field.#method(encoder).map(|_| true),
+            }
+        },
+    );
 
     let render_unescaped = quote!(render_unescaped);
-    let render_field_unescaped = fields.iter().map(|Field { field, hash, method, .. }| {
-        let method = method.as_ref().unwrap_or(&render_unescaped);
+    let render_field_unescaped = fields.iter().map(
+        |Field {
+             field,
+             hash,
+             method,
+             ..
+         }| {
+            let method = method.as_ref().unwrap_or(&render_unescaped);
 
-        quote! {
-            #hash => self.#field.#method(encoder).map(|_| true),
-        }
-    });
+            quote! {
+                #hash => self.#field.#method(encoder).map(|_| true),
+            }
+        },
+    );
 
     let render_field_section = fields.iter().map(|Field { field, hash, .. }| {
         quote! {
@@ -223,8 +234,14 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
     let flatten = &*flatten;
     let fields = fields.iter().map(|Field { field, .. }| field);
 
-    let where_clause = type_params.map(|param| quote!(#param: ::ramhorns::Content)).collect::<Vec<_>>();
-    let where_clause = if where_clause.len() > 0 { quote!(where #(#where_clause),*) } else { quote!() };
+    let where_clause = type_params
+        .map(|param| quote!(#param: ::ramhorns::Content))
+        .collect::<Vec<_>>();
+    let where_clause = if !where_clause.is_empty() {
+        quote!(where #(#where_clause),*)
+    } else {
+        quote!()
+    };
 
     // FIXME: decouple lifetimes from actual generics with trait boundaries
     let tokens = quote! {

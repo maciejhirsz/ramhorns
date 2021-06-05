@@ -3,8 +3,8 @@
 //! statically manage parent section lookups without doing extra work on
 //! runtime.
 
-use crate::template::Section;
 use crate::encoding::Encoder;
+use crate::template::Section;
 use crate::Content;
 
 /// Helper trait used to rotate a queue of parent `Content`s. Think of this as of a
@@ -150,12 +150,11 @@ where
         name: &str,
         encoder: &mut E,
     ) -> Result<(), E::Error> {
-        if !self.3.render_field_escaped(hash, name, encoder)? {
-            if !self.2.render_field_escaped(hash, name, encoder)? {
-                if !self.1.render_field_escaped(hash, name, encoder)? {
-                    self.0.render_field_escaped(hash, name, encoder)?;
-                }
-            }
+        if !self.3.render_field_escaped(hash, name, encoder)?
+            && !self.2.render_field_escaped(hash, name, encoder)?
+            && !self.1.render_field_escaped(hash, name, encoder)?
+        {
+            self.0.render_field_escaped(hash, name, encoder)?;
         }
         Ok(())
     }
@@ -167,12 +166,11 @@ where
         name: &str,
         encoder: &mut E,
     ) -> Result<(), E::Error> {
-        if !self.3.render_field_unescaped(hash, name, encoder)? {
-            if !self.2.render_field_unescaped(hash, name, encoder)? {
-                if !self.1.render_field_unescaped(hash, name, encoder)? {
-                    self.0.render_field_unescaped(hash, name, encoder)?;
-                }
-            }
+        if !self.3.render_field_unescaped(hash, name, encoder)?
+            && !self.2.render_field_unescaped(hash, name, encoder)?
+            && !self.1.render_field_unescaped(hash, name, encoder)?
+        {
+            self.0.render_field_unescaped(hash, name, encoder)?;
         }
         Ok(())
     }
@@ -214,14 +212,12 @@ where
         P: ContentSequence,
         E: Encoder,
     {
-        if !self.3.render_field_inverse(hash, name, section, encoder)? {
-            if !self.2.render_field_inverse(hash, name, section, encoder)? {
-                if !self.1.render_field_inverse(hash, name, section, encoder)? {
-                    if !self.0.render_field_inverse(hash, name, section, encoder)? {
-                        section.render(encoder)?;
-                    }
-                }
-            }
+        if !self.3.render_field_inverse(hash, name, section, encoder)?
+            && !self.2.render_field_inverse(hash, name, section, encoder)?
+            && !self.1.render_field_inverse(hash, name, section, encoder)?
+            && !self.0.render_field_inverse(hash, name, section, encoder)?
+        {
+            section.render(encoder)?;
         }
         Ok(())
     }
