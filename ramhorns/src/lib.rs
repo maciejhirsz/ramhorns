@@ -136,7 +136,7 @@ impl Ramhorns {
             }
             Ok(())
         }
-        load_folder(dir.as_ref(), &mut templates)?;
+        load_folder(&dir.as_ref().canonicalize()?, &mut templates)?;
 
         Ok(templates)
     }
