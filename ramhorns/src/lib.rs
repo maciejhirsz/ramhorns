@@ -113,7 +113,7 @@ impl Ramhorns {
     /// let rendered = tpls.get("hello.html").unwrap().render(&content);
     /// ```
     pub fn from_folder<P: AsRef<Path>>(dir: P) -> Result<Self, Error> {
-        let mut templates = Ramhorns::lazy(dir)?;
+        let mut templates = Ramhorns::lazy(dir.as_ref())?;
 
         fn load_folder(path: &Path, templates: &mut Ramhorns) -> Result<(), Error> {
             for entry in std::fs::read_dir(path)? {
@@ -136,7 +136,7 @@ impl Ramhorns {
             }
             Ok(())
         }
-        load_folder(&templates.dir.clone(), &mut templates)?;
+        load_folder(&dir.as_ref().canonicalize()?, &mut templates)?;
 
         Ok(templates)
     }

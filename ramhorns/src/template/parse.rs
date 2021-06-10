@@ -74,7 +74,7 @@ impl<'tpl> Template<'tpl> {
     ) -> Result<usize, Error> {
         let mut last = 0;
         let mut lex = Opening::lexer(source);
-        let mut stack = ArrayVec::<[usize; 16]>::new();
+        let mut stack = ArrayVec::<usize, 16>::new();
 
         while let Some(token) = lex.next() {
             let tag = match token {
