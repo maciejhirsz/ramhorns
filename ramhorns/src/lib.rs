@@ -114,7 +114,7 @@ impl Ramhorns {
     /// let rendered = tpls.get("hello.html").unwrap().render(&content);
     /// ```
     pub fn from_folder<P: AsRef<Path>>(dir: P) -> Result<Self, Error> {
-        let mut templates = Ramhorns::lazy(dir)?;
+        let mut templates = Ramhorns::lazy(dir.as_ref())?;
 
         Self::load_folder(&templates.dir.clone(), "html", &mut templates)?;
 

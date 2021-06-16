@@ -11,6 +11,7 @@ use crate::encoding::Encoder;
 use crate::template::{Section, Template};
 use crate::traits::{ContentSequence};
 
+use arrayvec::ArrayVec;
 use std::borrow::{Borrow, Cow, ToOwned};
 use std::collections::{BTreeMap, HashMap};
 use std::hash::{BuildHasher, Hash};
@@ -425,6 +426,54 @@ impl<T: Content> Content for Vec<T> {
 }
 
 impl<T: Content> Content for [T] {
+    #[inline]
+    fn is_truthy(&self) -> bool {
+        !self.is_empty()
+    }
+
+    #[inline]
+    fn render_section<C, E>(
+        &self,
+        section: Section<C>,
+        encoder: &mut E,
+    ) -> Result<(), E::Error>
+    where
+        C: ContentSequence,
+        E: Encoder,
+    {
+        for item in self.iter() {
+            item.render_section(section, encoder)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl<T: Content, const N: usize> Content for [T; N] {
+    #[inline]
+    fn is_truthy(&self) -> bool {
+        !self.is_empty()
+    }
+
+    #[inline]
+    fn render_section<C, E>(
+        &self,
+        section: Section<C>,
+        encoder: &mut E,
+    ) -> Result<(), E::Error>
+    where
+        C: ContentSequence,
+        E: Encoder,
+    {
+        for item in self.iter() {
+            item.render_section(section, encoder)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl<T: Content, const N: usize> Content for ArrayVec<T, N> {
     #[inline]
     fn is_truthy(&self) -> bool {
         !self.is_empty()
