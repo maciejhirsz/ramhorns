@@ -105,7 +105,8 @@ pub struct Ramhorns {
 
 impl Ramhorns {
     /// Loads all the `.html` files as templates from the given folder, making them
-    /// accessible via their path, joining partials as required.
+    /// accessible via their path, joining partials as required. If a custom
+    /// extension is wanted, see [from_folder_with_extension]
     /// ```no_run
     /// # use ramhorns::Ramhorns;
     /// let tpls = Ramhorns::from_folder("./templates").unwrap();
@@ -115,30 +116,51 @@ impl Ramhorns {
     pub fn from_folder<P: AsRef<Path>>(dir: P) -> Result<Self, Error> {
         let mut templates = Ramhorns::lazy(dir.as_ref())?;
 
-        fn load_folder(path: &Path, templates: &mut Ramhorns) -> Result<(), Error> {
-            for entry in std::fs::read_dir(path)? {
-                let path = entry?.path();
-                if path.is_dir() {
-                    load_folder(&path, templates)?;
-                } else if path.extension().unwrap_or_else(|| "".as_ref()) == "html" {
-                    let name = path
-                        .strip_prefix(&templates.dir)
-                        .unwrap_or(&path)
-                        .to_string_lossy();
-
-                    if !templates.partials.contains_key(&*name) {
-                        let template = Template::load(std::fs::read_to_string(&path)?, templates)?;
-                        templates
-                            .partials
-                            .insert(name.into_owned().into(), template);
-                    }
-                }
-            }
-            Ok(())
-        }
-        load_folder(&dir.as_ref().canonicalize()?, &mut templates)?;
+        Self::load_folder(&templates.dir.clone(), "html", &mut templates)?;
 
         Ok(templates)
+    }
+
+    /// Loads all files with the extension given in the `extension` parameter as templates
+    /// from the given folder, making them accessible via their path, joining partials as
+    /// required.
+    /// ```no_run
+    /// # use ramhorns::Ramhorns;
+    /// let tpls = Ramhorns::from_folder_with_extension("./templates", "mustache").unwrap();
+    /// let content = "I am the content";
+    /// let rendered = tpls.get("hello.mustache").unwrap().render(&content);
+    /// ```
+    pub fn from_folder_with_extension<P: AsRef<Path>>(
+        dir: P,
+        extension: &str,
+    ) -> Result<Self, Error> {
+        let mut templates = Ramhorns::lazy(dir)?;
+
+        Self::load_folder(&templates.dir.clone(), extension, &mut templates)?;
+
+        Ok(templates)
+    }
+
+    fn load_folder(path: &Path, extension: &str, templates: &mut Ramhorns) -> Result<(), Error> {
+        for entry in std::fs::read_dir(path)? {
+            let path = entry?.path();
+            if path.is_dir() {
+                Self::load_folder(&path, extension, templates)?;
+            } else if path.extension().unwrap_or_else(|| "".as_ref()) == extension {
+                let name = path
+                    .strip_prefix(&templates.dir)
+                    .unwrap_or(&path)
+                    .to_string_lossy();
+
+                if !templates.partials.contains_key(&*name) {
+                    let template = Template::load(std::fs::read_to_string(&path)?, templates)?;
+                    templates
+                        .partials
+                        .insert(name.into_owned().into(), template);
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Create a new empty aggregator for a given folder. This won't do anything until
