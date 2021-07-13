@@ -78,8 +78,9 @@
 
 use std::path::{Path, PathBuf};
 
-use beef::Cow;
 use ahash::AHashMap as HashMap;
+use beef::Cow;
+use std::io::ErrorKind;
 
 mod cmark;
 mod content;
@@ -203,7 +204,14 @@ impl Ramhorns {
             if !path.starts_with(&self.dir) {
                 return Err(Error::IllegalPartial(n.into()));
             }
-            let template = Template::load(std::fs::read_to_string(&path)?, self)?;
+            let file = match std::fs::read_to_string(&path) {
+                Ok(file) => Ok(file),
+                Err(e) if e.kind() == ErrorKind::NotFound => {
+                    Err(Error::NotFound(name.as_ref().into()))
+                }
+                Err(e) => Err(Error::Io(e)),
+            }?;
+            let template = Template::load(file, self)?;
             self.partials.insert(name.clone(), template);
         };
         Ok(&self.partials[n])
