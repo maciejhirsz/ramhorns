@@ -82,7 +82,6 @@ use ahash::AHashMap as HashMap;
 use beef::Cow;
 use std::io::ErrorKind;
 
-mod cmark;
 mod content;
 mod error;
 mod template;

@@ -50,14 +50,6 @@ pub trait Content {
         self.render_escaped(encoder)
     }
 
-    /// Renders self as a variable to the encoder with CommonMark processing.
-    ///
-    /// The generated HTML is never escaped.
-    #[inline]
-    fn render_cmark<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
-        self.render_escaped(encoder)
-    }
-
     /// Render a section with self.
     #[inline]
     fn render_section<C, E>(
@@ -184,11 +176,6 @@ impl Content for str {
     fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         encoder.write_unescaped(self)
     }
-
-    #[inline]
-    fn render_cmark<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
-        crate::cmark::encode(self, encoder)
-    }
 }
 
 impl Content for String {
@@ -210,11 +197,6 @@ impl Content for String {
     #[inline]
     fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         encoder.write_unescaped(self)
-    }
-
-    #[inline]
-    fn render_cmark<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
-        crate::cmark::encode(self, encoder)
     }
 }
 
@@ -802,11 +784,6 @@ impl Content for beef::Cow<'_, str> {
     fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         encoder.write_unescaped(self)
     }
-
-    #[inline]
-    fn render_cmark<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
-        crate::cmark::encode(self, encoder)
-    }
 }
 
 #[cfg(target_pointer_width = "64")]
@@ -829,10 +806,5 @@ impl Content for beef::lean::Cow<'_, str> {
     #[inline]
     fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         encoder.write_unescaped(self)
-    }
-
-    #[inline]
-    fn render_cmark<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
-        crate::cmark::encode(self, encoder)
     }
 }
