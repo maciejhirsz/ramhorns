@@ -747,6 +747,23 @@ fn simple_partials_folder() {
 }
 
 #[test]
+fn simple_partials_extend() {
+    use std::fs::read_to_string;
+
+    let mut tpls = Ramhorns::from_folder("templates").unwrap();
+    tpls.extend_from_folder("more_templates").unwrap();
+    let post = Post {
+        title: "Hello, Ramhorns!",
+        body: "This is a really simple test of the rendering!",
+    };
+
+    assert_eq!(
+        tpls.get("basic2.html").unwrap().render(&post),
+        read_to_string("more_templates/basic2.result").unwrap().trim_end()
+    );
+}
+
+#[test]
 fn illegal_partials() {
     use ramhorns::Error;
 
