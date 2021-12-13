@@ -488,7 +488,7 @@ fn can_render_callback() {
 
     #[derive(Content)]
     struct Post<'a> {
-        #[ramhorns(callback = "double")]
+        #[ramhorns(callback(double))]
         body: &'a str,
     }
 

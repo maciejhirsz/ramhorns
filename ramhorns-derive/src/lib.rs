@@ -24,7 +24,7 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
-use syn::{Attribute, Error, ExprPath, Fields, ItemStruct, LitInt};
+use syn::{Attribute, Error, Fields, ItemStruct, LitInt, Path};
 
 use std::cmp::Ordering;
 use std::hash::Hasher;
@@ -34,7 +34,7 @@ type UnitFields = Punctuated<syn::Field, Comma>;
 struct Field {
     hash: u64,
     field: TokenStream2,
-    callback: Option<ExprPath>,
+    callback: Option<Path>,
 }
 
 impl PartialEq for Field {
@@ -71,14 +71,14 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
 
     let mut errors = Vec::new();
 
-    let fields = match &item.fields {
-        Fields::Named(fields) => fields.named.iter(),
-        Fields::Unnamed(fields) => fields.unnamed.iter(),
-        _ => unit_fields.iter(),
+    let fields = match item.fields {
+        Fields::Named(fields) => fields.named.into_iter(),
+        Fields::Unnamed(fields) => fields.unnamed.into_iter(),
+        _ => unit_fields.into_iter(),
     };
 
     let mut flatten = Vec::new();
-    let md_callback: ExprPath = syn::parse2(quote!(::ramhorns::encoding::encode_cmark)).unwrap();
+    let md_callback: Path = syn::parse(quote!(::ramhorns::encoding::encode_cmark).into()).unwrap();
     let mut fields = fields
         .enumerate()
         .filter_map(|(index, field)| {
@@ -87,7 +87,8 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
             let mut skip = false;
 
             let mut parse_attr = |attr: &Attribute| -> Result<(), Error> {
-                use syn::{spanned::Spanned, Lit, Meta, MetaNameValue, NestedMeta};
+                use syn::punctuated::Pair;
+                use syn::{spanned::Spanned, Lit, Meta, MetaList, MetaNameValue, NestedMeta};
 
                 let meta_list = match attr.parse_meta()? {
                     Meta::List(ml) => ml,
@@ -99,7 +100,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                     }
                 };
 
-                for nested_meta in &meta_list.nested {
+                for nested_meta in meta_list.nested {
                     match nested_meta {
                         NestedMeta::Meta(Meta::Path(path)) if path.is_ident("skip") => {
                             skip = true;
@@ -123,12 +124,19 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                             lit: Lit::Str(lit_str),
                             ..
                         })) if path.is_ident("rename") => rename = Some(lit_str.value()),
-                        NestedMeta::Meta(Meta::NameValue(MetaNameValue {
-                            path,
-                            lit: Lit::Str(lit_str),
-                            ..
+                        NestedMeta::Meta(Meta::List(MetaList {
+                            path, mut nested, ..
                         })) if path.is_ident("callback") => {
-                            callback = Some(syn::parse_str(&lit_str.value())?)
+                            if let Some(Pair::End(NestedMeta::Meta(Meta::Path(path)))) =
+                                nested.pop()
+                            {
+                                callback = Some(path);
+                            } else {
+                                return Err(Error::new(
+                                    nested.span(),
+                                    "`callback` attribute in `ramhorns` takes one path identifier",
+                                ));
+                            }
                         }
                         _ => {
                             return Err(Error::new(
