@@ -461,7 +461,7 @@ fn can_render_markdown() {
     struct Post<'a> {
         title: &'a str,
 
-        #[md]
+        #[ramhorns(md)]
         body: &'a str,
     }
 
@@ -473,6 +473,32 @@ fn can_render_markdown() {
     });
 
     assert_eq!(html, "<h1>This is *the* title</h1><div><p>This is <em>the</em> <strong>body</strong>!</p>\n</div>");
+}
+
+#[test]
+fn can_render_callback() {
+    fn double<E>(s: &str, enc: &mut E) -> Result<(), E::Error>
+    where
+        E: ramhorns::encoding::Encoder,
+    {
+        enc.write_escaped(s)?;
+        enc.write_escaped("+")?;
+        enc.write_escaped(s)
+    }
+
+    #[derive(Content)]
+    struct Post<'a> {
+        #[ramhorns(callback(double))]
+        body: &'a str,
+    }
+
+    let tpl = Template::new("<div>{{body}}</div>").unwrap();
+
+    let html = tpl.render(&Post {
+        body: "One",
+    });
+
+    assert_eq!(html, "<div>One+One</div>");
 }
 
 #[test]

@@ -12,7 +12,7 @@
 
 use std::io;
 use std::fmt;
-use pulldown_cmark::{html, Event};
+use pulldown_cmark::{html, Event, Parser};
 
 /// A trait that wraps around either a `String` or `std::io::Write`, providing UTF-8 safe
 /// writing boundaries and special HTML character escaping.
@@ -210,4 +210,11 @@ impl Encoder for String {
 
         Ok(())
     }
+}
+
+/// Parse and encode the markdown using pulldown_cmark
+pub fn encode_cmark<E: Encoder>(source: &str, encoder: &mut E) -> Result<(), E::Error> {
+    let parser = Parser::new(source);
+
+    encoder.write_html(parser)
 }

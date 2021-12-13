@@ -568,19 +568,7 @@ dependencies = [
  "logos",
  "pretty_assertions",
  "pulldown-cmark",
- "ramhorns-derive 0.11.0",
-]
-
-[[package]]
-name = "ramhorns-derive"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8988227ddc8b4ebe19cbb1a075913aaa7b48c651816495d5ab00860667816f7e"
-dependencies = [
- "fnv",
- "proc-macro2",
- "quote",
- "syn",
+ "ramhorns-derive",
 ]
 
 [[package]]
