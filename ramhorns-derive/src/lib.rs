@@ -18,13 +18,14 @@
 
 extern crate proc_macro;
 
+use bae::FromAttributes;
 use fnv::FnvHasher;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
-use syn::{Attribute, Error, Fields, ItemStruct, LitInt, Path};
+use syn::{Fields, ItemStruct, LitInt, LitStr, Path};
 
 use std::cmp::Ordering;
 use std::hash::Hasher;
@@ -57,6 +58,15 @@ impl Ord for Field {
     }
 }
 
+#[derive(FromAttributes)]
+struct Ramhorns {
+    skip: Option<()>,
+    md: Option<()>,
+    flatten: Option<()>,
+    rename: Option<LitStr>,
+    callback: Option<Path>,
+}
+
 #[proc_macro_derive(Content, attributes(md, ramhorns))]
 pub fn content_derive(input: TokenStream) -> TokenStream {
     let item: ItemStruct =
@@ -86,76 +96,35 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
             let mut rename = None;
             let mut skip = false;
 
-            let mut parse_attr = |attr: &Attribute| -> Result<(), Error> {
-                use syn::punctuated::Pair;
-                use syn::{spanned::Spanned, Lit, Meta, MetaList, MetaNameValue, NestedMeta};
-
-                let meta_list = match attr.parse_meta()? {
-                    Meta::List(ml) => ml,
-                    _ => {
-                        return Err(Error::new(
-                            attr.span(),
-                            "missing attributes; did you mean `#[ramhorns(md)]`?",
+            match Ramhorns::try_from_attributes(&field.attrs) {
+                Ok(Some(ramhorns)) => {
+                    if ramhorns.skip.is_some() {
+                        skip = true;
+                    }
+                    if ramhorns.md.is_some() {
+                        callback = Some(md_callback.clone());
+                    }
+                    if ramhorns.flatten.is_some() {
+                        flatten.push(field.ident.as_ref().map_or_else(
+                            || {
+                                let index = index.to_string();
+                                let lit = LitInt::new(&index, Span::call_site());
+                                quote!(#lit)
+                            },
+                            |ident| quote!(#ident),
                         ));
+                        skip = true;
                     }
-                };
-
-                for nested_meta in meta_list.nested {
-                    match nested_meta {
-                        NestedMeta::Meta(Meta::Path(path)) if path.is_ident("skip") => {
-                            skip = true;
-                        }
-                        NestedMeta::Meta(Meta::Path(path)) if path.is_ident("md") => {
-                            callback = Some(md_callback.clone());
-                        }
-                        NestedMeta::Meta(Meta::Path(path)) if path.is_ident("flatten") => {
-                            flatten.push(field.ident.as_ref().map_or_else(
-                                || {
-                                    let index = index.to_string();
-                                    let lit = LitInt::new(&index, Span::call_site());
-                                    quote!(#lit)
-                                },
-                                |ident| quote!(#ident),
-                            ));
-                            skip = true;
-                        }
-                        NestedMeta::Meta(Meta::NameValue(MetaNameValue {
-                            path,
-                            lit: Lit::Str(lit_str),
-                            ..
-                        })) if path.is_ident("rename") => rename = Some(lit_str.value()),
-                        NestedMeta::Meta(Meta::List(MetaList {
-                            path, mut nested, ..
-                        })) if path.is_ident("callback") => {
-                            if let Some(Pair::End(NestedMeta::Meta(Meta::Path(path)))) =
-                                nested.pop()
-                            {
-                                callback = Some(path);
-                            } else {
-                                return Err(Error::new(
-                                    nested.span(),
-                                    "`callback` attribute in `ramhorns` takes one path identifier",
-                                ));
-                            }
-                        }
-                        _ => {
-                            return Err(Error::new(
-                                nested_meta.span(),
-                                "not a valid attribute in `ramhorns`",
-                            ));
-                        }
+                    if let Some(lit_str) = ramhorns.rename {
+                        rename = Some(lit_str.value());
                     }
-                }
-                Ok(())
+                    if let Some(path) = ramhorns.callback {
+                        callback = Some(path);
+                    }
+                },
+                Ok(None) => (),
+                Err(err) => errors.push(err),
             };
-
-            errors.extend(
-                field
-                    .attrs
-                    .iter()
-                    .filter(|a| a.path.is_ident("ramhorns"))
-                    .filter_map(|a| parse_attr(a).err()),
-            );
 
             if skip {
                 return None;
