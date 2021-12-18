@@ -16,8 +16,8 @@ use std::io;
 use std::path::Path;
 
 use crate::encoding::EscapingIOEncoder;
-use crate::{Content, Error};
 use crate::Partials;
+use crate::{Content, Error};
 
 use beef::Cow;
 use fnv::FnvHasher;
@@ -57,9 +57,7 @@ impl<'tpl> Template<'tpl> {
 
         // This is allows `Block`s inside this `Template` to be references of the `source` field.
         // This is safe as long as the `source` field is never mutated or dropped.
-        let unsafe_source: &'tpl str = unsafe {
-            &*(&*source as *const str)
-        };
+        let unsafe_source: &'tpl str = unsafe { &*(&*source as *const str) };
 
         let mut tpl = Template {
             blocks: Vec::with_capacity(16),
@@ -69,7 +67,7 @@ impl<'tpl> Template<'tpl> {
 
         let last = tpl.parse(unsafe_source, partials)?;
         let tail = &unsafe_source[last..].trim_end();
-        tpl.blocks.push(Block::new(tail, "", Tag::Tail));
+        tpl.blocks.push(Block::nameless(tail, Tag::Tail));
         tpl.capacity_hint += tail.len();
 
         Ok(tpl)
@@ -102,7 +100,9 @@ impl<'tpl> Template<'tpl> {
         C: Content,
     {
         let mut encoder = EscapingIOEncoder::new(writer);
-        Section::new(&self.blocks).with(content).render(&mut encoder)
+        Section::new(&self.blocks)
+            .with(content)
+            .render(&mut encoder)
     }
 
     /// Render this `Template` with a given `Content` to a file.
@@ -112,11 +112,13 @@ impl<'tpl> Template<'tpl> {
         C: Content,
     {
         use io::BufWriter;
-        
+
         let writer = BufWriter::new(File::create(path)?);
         let mut encoder = EscapingIOEncoder::new(writer);
 
-        Section::new(&self.blocks).with(content).render(&mut encoder)
+        Section::new(&self.blocks)
+            .with(content)
+            .render(&mut encoder)
     }
 
     /// Get a reference to a source this `Template` was created from.
@@ -161,18 +163,32 @@ pub(crate) struct Block<'tpl> {
     children: u32,
 }
 
+#[inline]
+pub(crate) fn hash_name(name: &str) -> u64 {
+    let mut hasher = FnvHasher::default();
+    hasher.write(name.as_bytes());
+    hasher.finish()
+}
+
 impl<'tpl> Block<'tpl> {
+    #[inline]
     fn new(html: &'tpl str, name: &'tpl str, tag: Tag) -> Self {
-        let mut hasher = FnvHasher::default();
-
-        hasher.write(name.as_bytes());
-
-        let hash = hasher.finish();
-
         Block {
             html,
             name,
-            hash,
+            hash: hash_name(name),
+            tag,
+            children: 0,
+        }
+    }
+
+    // Skips hashing; can be used when tag is Partial, Comment or Tail
+    #[inline]
+    fn nameless(html: &'tpl str, tag: Tag) -> Self {
+        Block {
+            html,
+            name: "",
+            hash: 0,
             tag,
             children: 0,
         }
@@ -221,7 +237,7 @@ mod test {
 
     #[test]
     fn constructs_blocks_correctly() {
-        let source = "<title>{{title}}</title><h1>{{ title }}</h1><div>{{{body}}}</div>";
+        let source = "<title>{{title}}</title><h1>{{title}}</h1><div>{{{body}}}</div>";
         let tpl = Template::new(source).unwrap();
 
         assert_eq!(
@@ -230,14 +246,14 @@ mod test {
                 Block::new("<title>", "title", Tag::Escaped),
                 Block::new("</title><h1>", "title", Tag::Escaped),
                 Block::new("</h1><div>", "body", Tag::Unescaped),
-                Block::new("</div>", "", Tag::Tail),
+                Block::nameless("</div>", Tag::Tail),
             ]
         );
     }
 
     #[test]
     fn constructs_nested_sections_correctly() {
-        let source = "<body><h1>{{ title }}</h1>{{#posts}}<article>{{name}}</article>{{/posts}}{{^posts}}<p>Nothing here :(</p>{{/posts}}</body>";
+        let source = "<body><h1>{{title}}</h1>{{#posts}}<article>{{name}}</article>{{/posts}}{{^posts}}<p>Nothing here :(</p>{{/posts}}</body>";
         let tpl = Template::new(source).unwrap();
 
         assert_eq!(
@@ -246,10 +262,29 @@ mod test {
                 Block::new("<body><h1>", "title", Tag::Escaped),
                 Block::new("</h1>", "posts", Tag::Section).children(2),
                 Block::new("<article>", "name", Tag::Escaped),
-                Block::new("</article>", "posts", Tag::Closing),
+                Block::nameless("</article>", Tag::Closing),
                 Block::new("", "posts", Tag::Inverse).children(1),
-                Block::new("<p>Nothing here :(</p>", "posts", Tag::Closing),
-                Block::new("</body>", "", Tag::Tail),
+                Block::nameless("<p>Nothing here :(</p>", Tag::Closing),
+                Block::nameless("</body>", Tag::Tail),
+            ]
+        );
+    }
+
+    #[test]
+    fn constructs_nested_sections_with_dot_correctly() {
+        let source = "<body><h1>{{site title}}</h1>{{^archive posts}}<article>{{name}}</article>{{/posts archive}}</body>";
+        let tpl = Template::new(source).unwrap();
+
+        assert_eq!(
+            &tpl.blocks,
+            &[
+                Block::new("<body><h1>", "site", Tag::Section).children(1),
+                Block::new("", "title", Tag::Escaped),
+                Block::new("</h1>", "archive", Tag::Section).children(3),
+                Block::new("", "posts", Tag::Inverse).children(2),
+                Block::new("<article>", "name", Tag::Escaped),
+                Block::nameless("</article>", Tag::Closing),
+                Block::nameless("</body>", Tag::Tail),
             ]
         );
     }

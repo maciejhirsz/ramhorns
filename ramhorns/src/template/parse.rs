@@ -7,11 +7,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
-use logos::Logos;
 use arrayvec::ArrayVec;
+use logos::Logos;
 
+use super::{hash_name, Block, Error, Tag, Template};
 use crate::Partials;
-use super::{Block, Error, Tag, Template};
 
 #[derive(Logos)]
 #[logos(extras = Braces)]
@@ -47,9 +47,12 @@ enum Closing {
     #[token("}}}")]
     Match,
 
-    #[regex(r"[^}]+", logos::skip)]
+    #[regex(r"[^ \}]+")]
+    Ident,
+
+    #[regex(r"[ ]+", logos::skip)]
     #[error]
-    Err
+    Err,
 }
 
 /// Marker of how many braces we expect to match
@@ -87,21 +90,111 @@ impl<'tpl> Template<'tpl> {
             // in front of the token:
             //
             // let html = &lex.before()[last..];
-            let html = &lex.source()[last..lex.span().start];
+            let mut html = &lex.source()[last..lex.span().start];
             self.capacity_hint += html.len();
-            last = lex.span().end;
 
             // Morphing the lexer to match the closing
             // braces and grab the name
             let mut closing = lex.morph();
+            let tail_idx = self.blocks.len();
 
-            match closing.next() {
-                Some(Closing::Match) => (),
-                _ => return Err(Error::UnclosedTag),
+            let _tok = closing.next();
+            if !matches!(Some(Closing::Ident), _tok) {
+                return Err(Error::UnclosedTag);
+            }
+            let mut name = closing.slice();
+                    
+            match tag {
+                Tag::Escaped | Tag::Unescaped => {
+                    loop {
+                        match closing.next() {
+                            Some(Closing::Ident) => {
+                                self.blocks.push(Block::new(html, name, Tag::Section));
+                                name = closing.slice();
+                                html = "";
+                            },
+                            Some(Closing::Match) => {
+                                self.blocks.push(Block::new(html, name, tag));
+                                break;
+                            }
+                            _ => return Err(Error::UnclosedTag),
+                        }
+                    }
+                    
+                    let d = self.blocks.len() - tail_idx - 1;
+                    for i in 0..d {
+                        self.blocks[tail_idx + i].children = (d - i) as u32;
+                    }
+                }
+                Tag::Section | Tag::Inverse => {
+                    loop {
+                        match closing.next() {
+                            Some(Closing::Ident) => {
+                                stack.try_push(self.blocks.len())?;
+                                self.blocks.push(Block::new(html, name, Tag::Section));
+                                name = closing.slice();
+                                html = "";
+                            },
+                            Some(Closing::Match) => {
+                                stack.try_push(self.blocks.len())?;
+                                self.blocks.push(Block::new(html, name, tag));
+                                break;
+                            }
+                            _ => return Err(Error::UnclosedTag),
+                        }
+                    }
+                }
+                Tag::Closing => {
+                    self.blocks.push(Block::nameless(html, Tag::Closing));
+
+                    let mut pop_section = |name| {
+                        let hash = hash_name(name);
+
+                        let head_idx = stack
+                            .pop()
+                            .ok_or_else(|| Error::UnopenedSection(name.into()))?;
+                        let head = &mut self.blocks[head_idx];
+                        head.children = (tail_idx - head_idx) as u32;
+
+                        if head.hash != hash {
+                            return Err(Error::UnclosedSection(head.name.into()));
+                        }
+                        Ok(())
+                    };
+                    
+                    pop_section(name)?;
+                    loop {
+                        match closing.next() {
+                            Some(Closing::Ident) => {
+                                pop_section(closing.slice())?;
+                            },
+                            Some(Closing::Match) => break,
+                            _ => return Err(Error::UnclosedTag),
+                        }
+                    }
+                }
+                Tag::Partial => {
+                    match closing.next() {
+                        Some(Closing::Match) => {},
+                        _ => return Err(Error::UnclosedTag),
+                    }
+                    
+                    self.blocks.push(Block::nameless(html, tag));
+                    let partial = partials.get_partial(name)?;
+                    self.blocks.extend_from_slice(&partial.blocks);
+                    self.capacity_hint += partial.capacity_hint;
+                }
+                _ => {
+                    loop {
+                        match closing.next() {
+                            Some(Closing::Ident) => continue,
+                            Some(Closing::Match) => break,
+                            _ => return Err(Error::UnclosedTag),
+                        }
+                    }
+                    self.blocks.push(Block::nameless(html, tag));
+                }
             };
-
-            // Ditto about lex.before()
-            let name = source[last..closing.span().start].trim();
 
             // Add the number of braces that we were expecting,
             // not the number we got:
@@ -110,35 +203,6 @@ impl<'tpl> Template<'tpl> {
             last = closing.span().start + closing.extras as usize;
             lex = closing.morph();
             lex.extras = Braces::Two;
-
-            // Push a new block
-            let tail_idx = self.blocks.len();
-            let block = Block::new(html, name, tag);
-            let hash = block.hash;
-
-            self.blocks.push(block);
-
-            match tag {
-                Tag::Section | Tag::Inverse => {
-                    stack.try_push(tail_idx)?;
-                }
-                Tag::Closing => {
-                    let head_idx = stack.pop().ok_or_else(|| Error::UnopenedSection(name.into()))?;
-                    let head = &mut self.blocks[head_idx];
-
-                    head.children = (tail_idx - head_idx) as u32;
-
-                    if head.hash != hash {
-                        return Err(Error::UnclosedSection(head.name.into()));
-                    }
-                }
-                Tag::Partial => {
-                    let partial = partials.get_partial(name)?;
-                    self.blocks.extend_from_slice(&partial.blocks);
-                    self.capacity_hint += partial.capacity_hint;
-                }
-                _ => {}
-            };
         }
 
         Ok(last)
