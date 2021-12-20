@@ -11,7 +11,7 @@ mod parse;
 mod section;
 
 use std::fs::File;
-use std::hash::Hasher;
+use std::hash::{Hash, Hasher};
 use std::io;
 use std::path::Path;
 
@@ -166,7 +166,7 @@ pub(crate) struct Block<'tpl> {
 #[inline]
 pub(crate) fn hash_name(name: &str) -> u64 {
     let mut hasher = FnvHasher::default();
-    hasher.write(name.as_bytes());
+    name.hash(&mut hasher);
     hasher.finish()
 }
 
@@ -228,7 +228,7 @@ mod test {
             Block {
                 html: "",
                 name: "test",
-                hash: 0xf9e6e6ef197c2b25,
+                hash: 2271575940368597870,
                 tag: Tag::Escaped,
                 children: 0,
             }

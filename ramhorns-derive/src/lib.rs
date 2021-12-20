@@ -28,7 +28,7 @@ use syn::token::Comma;
 use syn::{Fields, ItemStruct, LitInt, LitStr, Path};
 
 use std::cmp::Ordering;
-use std::hash::Hasher;
+use std::hash::{Hash, Hasher};
 
 type UnitFields = Punctuated<syn::Field, Comma>;
 
@@ -147,9 +147,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
             );
 
             let mut hasher = FnvHasher::default();
-
-            hasher.write(name.as_bytes());
-
+            name.hash(&mut hasher);
             let hash = hasher.finish();
 
             Some(Field {
