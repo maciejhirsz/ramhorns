@@ -15,16 +15,15 @@ categories = ["template-engine"]
 arrayvec = "0.7.1"
 beef = "0.5.1"
 fnv = "1.0"
-pulldown-cmark = "0.9"
+pulldown-cmark = { version = "0.9", default_features = false, optional = true }
 ramhorns-derive = { version = "0.13.0", optional = true }
-ahash = "0.7.4"
 logos = "0.12.0"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
 
 [features]
-default = ["export_derive"]
+default = ["export_derive", "pulldown-cmark"]
 
 # Re-exports the `Context` derive macro, so that end user only needs to
 # import this crate and `use ramhorns::Context` to get both the trait and

@@ -12,6 +12,8 @@
 
 use std::io;
 use std::fmt;
+
+#[cfg(feature = "pulldown-cmark")]
 use pulldown_cmark::{html, Event, Parser};
 
 /// A trait that wraps around either a `String` or `std::io::Write`, providing UTF-8 safe
@@ -26,6 +28,7 @@ pub trait Encoder {
     /// Write a `&str` to this `Encoder`, escaping special HTML characters.
     fn write_escaped(&mut self, part: &str) -> Result<(), Self::Error>;
 
+    #[cfg(feature = "pulldown-cmark")]
     /// Write HTML from an `Iterator` of `pulldown_cmark` `Event`s.
     fn write_html<'a, I: Iterator<Item = Event<'a>>>(&mut self, iter: I) -> Result<(), Self::Error>;
 
@@ -144,6 +147,7 @@ impl<W: io::Write> Encoder for EscapingIOEncoder<W> {
         self.write_escaped_bytes(part.as_bytes())
     }
 
+    #[cfg(feature = "pulldown-cmark")]
     #[inline]
     fn write_html<'a, I: Iterator<Item = Event<'a>>>(&mut self, iter: I) -> io::Result<()> {
         html::write_html(&mut self.inner, iter)
@@ -184,6 +188,7 @@ impl Encoder for String {
         Ok(())
     }
 
+    #[cfg(feature = "pulldown-cmark")]
     #[inline]
     fn write_html<'a, I: Iterator<Item = Event<'a>>>(&mut self, iter: I) -> Result<(), Self::Error> {
         html::push_html(self, iter);
@@ -212,6 +217,7 @@ impl Encoder for String {
     }
 }
 
+#[cfg(feature = "pulldown-cmark")]
 /// Parse and encode the markdown using pulldown_cmark
 pub fn encode_cmark<E: Encoder>(source: &str, encoder: &mut E) -> Result<(), E::Error> {
     let parser = Parser::new(source);
