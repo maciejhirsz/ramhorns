@@ -1,6 +1,6 @@
 [package]
 name = "ramhorns"
-version = "0.13.0"
+version = "0.14.0"
 authors = ["Maciej Hirsz <hello@maciej.codes>"]
 license = "GPL-3.0"
 edition = "2018"
@@ -12,11 +12,11 @@ keywords = ["html", "template", "mustache"]
 categories = ["template-engine"]
 
 [dependencies]
-arrayvec = "0.7.1"
-beef = "0.5.1"
+arrayvec = "0.7.2"
+beef = "0.5.2"
 fnv = "1.0"
 pulldown-cmark = { version = "0.9", default_features = false, optional = true }
-ramhorns-derive = { version = "0.13.0", optional = true }
+ramhorns-derive = { version = "0.14.0", optional = true }
 logos = "0.12.0"
 
 [dev-dependencies]
