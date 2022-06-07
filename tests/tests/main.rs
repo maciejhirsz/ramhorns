@@ -717,7 +717,7 @@ fn derive_flatten() {
 
 #[test]
 fn simple_partials() {
-    let mut tpls = Ramhorns::lazy("templates").unwrap();
+    let mut tpls: Ramhorns = Ramhorns::lazy("templates").unwrap();
     let tpl = tpls.from_file("layout.html").unwrap();
     let html = tpl.render(&"");
 
@@ -728,7 +728,7 @@ fn simple_partials() {
 fn simple_partials_folder() {
     use std::fs::read_to_string;
 
-    let tpls = Ramhorns::from_folder("templates").unwrap();
+    let tpls: Ramhorns = Ramhorns::from_folder("templates").unwrap();
     let post = Post {
         title: "Hello, Ramhorns!",
         body: "This is a really simple test of the rendering!",
@@ -750,7 +750,7 @@ fn simple_partials_folder() {
 fn simple_partials_extend() {
     use std::fs::read_to_string;
 
-    let mut tpls = Ramhorns::from_folder("templates").unwrap();
+    let mut tpls: Ramhorns = Ramhorns::from_folder("templates").unwrap();
     tpls.extend_from_folder("more_templates").unwrap();
     let post = Post {
         title: "Hello, Ramhorns!",
@@ -767,7 +767,7 @@ fn simple_partials_extend() {
 fn illegal_partials() {
     use ramhorns::Error;
 
-    let mut tpls = Ramhorns::lazy("templates").unwrap();
+    let mut tpls: Ramhorns = Ramhorns::lazy("templates").unwrap();
 
     let tpl1 = Template::new("<div>{{>templates/layout.html}}</div>");
     let tpl2 = tpls.from_file("illegal.hehe");

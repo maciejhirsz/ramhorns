@@ -130,7 +130,7 @@ fn e_simple_handlebars(b: &mut Bencher) {
 fn pa_partials_ramhorns(b: &mut Bencher) {
     use ramhorns::Ramhorns;
 
-    let mut tpls = Ramhorns::lazy("templates").unwrap();
+    let mut tpls: Ramhorns<ahash::RandomState> = Ramhorns::lazy("templates").unwrap();
     let tpl = tpls.from_file("basic.html").unwrap();
     let post = POST;
     b.bytes = RENDERED_BYTES;

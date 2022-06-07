@@ -75,10 +75,10 @@
 //! ```
 
 #![warn(missing_docs)]
-
+use std::collections::HashMap;
+use std::hash::BuildHasher;
 use std::path::{Path, PathBuf};
 
-use ahash::AHashMap as HashMap;
 use beef::Cow;
 use std::io::ErrorKind;
 
@@ -98,18 +98,21 @@ pub use ramhorns_derive::Content;
 
 /// Aggregator for [`Template`s](./struct.Template.html), that allows them to
 /// be loaded from the file system and use partials: `{{>partial}}`
-pub struct Ramhorns {
-    partials: HashMap<Cow<'static, str>, Template<'static>>,
+///
+/// For faster or DOS-resistant hashes, it is recommended to use
+/// [aHash](https://docs.rs/ahash/latest/ahash/) `RandomState` as hasher.
+pub struct Ramhorns<H = fnv::FnvBuildHasher> {
+    partials: HashMap<Cow<'static, str>, Template<'static>, H>,
     dir: PathBuf,
 }
 
-impl Ramhorns {
+impl<H: BuildHasher + Default> Ramhorns<H> {
     /// Loads all the `.html` files as templates from the given folder, making them
     /// accessible via their path, joining partials as required. If a custom
     /// extension is wanted, see [from_folder_with_extension]
     /// ```no_run
     /// # use ramhorns::Ramhorns;
-    /// let tpls = Ramhorns::from_folder("./templates").unwrap();
+    /// let tpls: Ramhorns = Ramhorns::from_folder("./templates").unwrap();
     /// let content = "I am the content";
     /// let rendered = tpls.get("hello.html").unwrap().render(&content);
     /// ```
@@ -122,7 +125,7 @@ impl Ramhorns {
     /// required.
     /// ```no_run
     /// # use ramhorns::Ramhorns;
-    /// let tpls = Ramhorns::from_folder_with_extension("./templates", "mustache").unwrap();
+    /// let tpls: Ramhorns = Ramhorns::from_folder_with_extension("./templates", "mustache").unwrap();
     /// let content = "I am the content";
     /// let rendered = tpls.get("hello.mustache").unwrap().render(&content);
     /// ```
@@ -186,7 +189,7 @@ impl Ramhorns {
     /// a template has been added using [`from_file`](#method.from_file).
     /// ```no_run
     /// # use ramhorns::Ramhorns;
-    /// let mut tpls = Ramhorns::lazy("./templates").unwrap();
+    /// let mut tpls: Ramhorns = Ramhorns::lazy("./templates").unwrap();
     /// let content = "I am the content";
     /// let rendered = tpls.from_file("hello.html").unwrap().render(&content);
     /// ```
@@ -238,7 +241,7 @@ pub(crate) trait Partials<'tpl> {
     fn get_partial(&mut self, name: &'tpl str) -> Result<&Template<'tpl>, Error>;
 }
 
-impl Partials<'static> for Ramhorns {
+impl<H: BuildHasher + Default> Partials<'static> for Ramhorns<H> {
     fn get_partial(&mut self, name: &'static str) -> Result<&Template<'static>, Error> {
         if !self.partials.contains_key(name) {
             let path = self.dir.join(name).canonicalize()?;
