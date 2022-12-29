@@ -4,7 +4,10 @@
 //! runtime.
 
 use crate::encoding::Encoder;
+#[cfg(not(feature = "indexes"))]
 use crate::template::Section;
+#[cfg(feature = "indexes")]
+use crate::template::{Indexed, Section};
 use crate::Content;
 
 /// Helper trait used to rotate a queue of parent `Content`s. Think of this as of a
@@ -85,6 +88,22 @@ pub trait ContentSequence: Combine + Sized + Copy {
         &self,
         _hash: u64,
         _name: &str,
+        _section: Section<'section, P>,
+        _encoder: &mut E,
+    ) -> Result<(), E::Error>
+    where
+        P: ContentSequence,
+        E: Encoder,
+    {
+        Ok(())
+    }
+
+    /// Render an index based section.
+    #[cfg(feature = "indexes")]
+    #[inline]
+    fn render_index_section<'section, P, E>(
+        &self,
+        _indexed: &Indexed,
         _section: Section<'section, P>,
         _encoder: &mut E,
     ) -> Result<(), E::Error>
@@ -219,6 +238,32 @@ where
         {
             section.render(encoder)?;
         }
+        Ok(())
+    }
+
+    #[cfg(feature = "indexes")]
+    #[inline]
+    fn render_index_section<'section, P, E>(
+        &self,
+        indexed: &Indexed,
+        section: Section<'section, P>,
+        encoder: &mut E,
+    ) -> Result<(), E::Error>
+    where
+        P: ContentSequence,
+        E: Encoder,
+    {
+        if !self.3.render_index_section(indexed, section, encoder)? {
+            let section = section.without_last();
+            if !self.2.render_index_section(indexed, section, encoder)? {
+                let section = section.without_last();
+                if !self.1.render_index_section(indexed, section, encoder)? {
+                    let section = section.without_last();
+                    self.0.render_index_section(indexed, section, encoder)?;
+                }
+            }
+        }
+
         Ok(())
     }
 }

@@ -24,6 +24,7 @@ pretty_assertions = "0.6.1"
 
 [features]
 default = ["export_derive", "pulldown-cmark"]
+indexes = []
 
 # Re-exports the `Context` derive macro, so that end user only needs to
 # import this crate and `use ramhorns::Context` to get both the trait and

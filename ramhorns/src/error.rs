@@ -37,6 +37,10 @@ pub enum Error {
 
     /// The template file with the given name was not found
     NotFound(Box<str>),
+
+    /// Failed to parse the section index
+    #[cfg(feature = "indexes")]
+    IndexParse(String),
 }
 
 impl error::Error for Error {}
@@ -77,6 +81,8 @@ impl fmt::Display for Error {
                 name
             ),
             Error::NotFound(name) => write!(f, "Template file {} not found", name),
+            #[cfg(feature = "indexes")]
+            Error::IndexParse(index) => write!(f, "Failed to parse index {}", index),
         }
     }
 }

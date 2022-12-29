@@ -9,6 +9,8 @@
 
 use arrayvec::ArrayVec;
 use logos::Logos;
+#[cfg(feature = "indexes")]
+use std::convert::TryFrom;
 
 use super::{hash_name, Block, Error, Template};
 use crate::Partials;
@@ -45,6 +47,10 @@ pub enum Tag {
     #[token("{{/")]
     Closing,
 
+    /// Index based list traversal
+    #[cfg(feature = "indexes")]
+    Indexed(Indexed),
+
     /// `{{!comment}}` tag
     #[token("{{!")]
     Comment,
@@ -55,6 +61,69 @@ pub enum Tag {
 
     /// Tailing html
     Tail,
+}
+
+/// Inclusive/Exclusive index based tag.
+#[cfg(feature = "indexes")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Indexed {
+    /// `{{#-index}}` opening tag for an exact index
+    Include(Index),
+    /// `{{^-index}}` opening tag for all other indexes
+    Exclude(Index),
+}
+#[cfg(feature = "indexes")]
+impl Indexed {
+    /// Marks whether this index is truthy.
+    /// Returns true when this index is to be rendered.
+    #[inline]
+    pub fn is_truthy(&self, len: usize, index: usize) -> bool {
+        match self {
+            Indexed::Include(index_) => index_.nth(len) == index,
+            Indexed::Exclude(index_) => index_.nth(len) != index,
+        }
+    }
+}
+
+/// Index specification for an index based tag.
+#[cfg(feature = "indexes")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Index {
+    /// The first element of the list.
+    First,
+    /// The last element of the list.
+    Last,
+    /// The nth element of the list.
+    Nth(usize),
+}
+#[cfg(feature = "indexes")]
+impl Index {
+    /// Get the index numeral value for a list of the given length.
+    pub fn nth(&self, len: usize) -> usize {
+        match self {
+            Index::First => 0,
+            Index::Last => len - 1,
+            Index::Nth(n) => *n,
+        }
+    }
+}
+#[cfg(feature = "indexes")]
+impl TryFrom<&str> for Index {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Ok(match value {
+            "first" => Self::First,
+            "last" => Self::Last,
+            maybe_number => Self::Nth(
+                maybe_number
+                    .parse()
+                    .map_err(|_| Error::IndexParse(maybe_number.to_string()))?,
+            ),
+        })
+    }
 }
 
 impl From<ParseError> for Error {
@@ -125,13 +194,16 @@ impl<'tpl> Template<'tpl> {
                 return Err(Error::UnclosedTag);
             }
             let mut name = closing.slice();
-
             match tag {
                 Tag::Escaped | Tag::Unescaped => {
                     loop {
                         match closing.next() {
                             Some(Ok(Closing::Ident)) => {
-                                self.blocks.push(Block::new(html, name, Tag::Section));
+                                self.blocks.push(Block::new(
+                                    html,
+                                    name,
+                                    Tag::Section,
+                                ));
                                 name = closing.slice();
                                 html = "";
                             }
@@ -152,12 +224,28 @@ impl<'tpl> Template<'tpl> {
                     match closing.next() {
                         Some(Ok(Closing::Ident)) => {
                             stack.try_push(self.blocks.len())?;
-                            self.blocks.push(Block::new(html, name, Tag::Section));
+                            self.blocks.push(Block::new(
+                                html,
+                                name,
+                                Tag::Section,
+                            ));
                             name = closing.slice();
                             html = "";
                         }
                         Some(Ok(Closing::Match)) => {
                             stack.try_push(self.blocks.len())?;
+                            #[cfg(feature = "indexes")]
+                            let tag = match name.strip_prefix("-") {
+                                Some(index) if tag == Tag::Section => {
+                                    Tag::Indexed(Indexed::Include(
+                                        Index::try_from(index)?,
+                                    ))
+                                }
+                                Some(index) => Tag::Indexed(Indexed::Exclude(
+                                    Index::try_from(index)?,
+                                )),
+                                None => tag,
+                            };
                             self.blocks.push(Block::new(html, name, tag));
                             break;
                         }
@@ -165,19 +253,24 @@ impl<'tpl> Template<'tpl> {
                     }
                 },
                 Tag::Closing => {
+                    #[cfg(feature = "indexes")]
+                    self.blocks.push(Block::nameless(html, tag));
+                    #[cfg(not(feature = "indexes"))]
                     self.blocks.push(Block::nameless(html, Tag::Closing));
 
                     let mut pop_section = |name| {
                         let hash = hash_name(name);
 
-                        let head_idx = stack
-                            .pop()
-                            .ok_or_else(|| Error::UnopenedSection(name.into()))?;
+                        let head_idx = stack.pop().ok_or_else(|| {
+                            Error::UnopenedSection(name.into())
+                        })?;
                         let head = &mut self.blocks[head_idx];
                         head.children = (tail_idx - head_idx) as u32;
 
                         if head.hash != hash {
-                            return Err(Error::UnclosedSection(head.name.into()));
+                            return Err(Error::UnclosedSection(
+                                head.name.into(),
+                            ));
                         }
                         Ok(())
                     };

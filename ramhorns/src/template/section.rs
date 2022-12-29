@@ -9,8 +9,10 @@
 
 use super::{Block, Tag};
 use crate::encoding::Encoder;
-use crate::Content;
+#[cfg(feature = "indexes")]
+use crate::template::Indexed;
 use crate::traits::{Combine, ContentSequence};
+use crate::Content;
 use std::ops::Range;
 
 /// A section of a `Template` that can be rendered individually, usually delimited by
@@ -62,12 +64,27 @@ where
 
     /// The section without the last `Content` in the stack
     #[inline]
-    pub fn without_last(self) -> Section<'section, C::Previous>
-    {
+    pub fn without_last(self) -> Section<'section, C::Previous> {
         Section {
             blocks: self.blocks,
             contents: self.contents.crawl_back(),
         }
+    }
+
+    /// The section without the first `Block` in the stack.
+    #[inline]
+    pub fn without_first(self) -> Self {
+        Section {
+            blocks: &self.blocks[1..],
+            contents: self.contents,
+        }
+    }
+
+    /// The section index of the next block, if it's a section index tag.
+    #[cfg(feature = "indexes")]
+    #[inline]
+    pub fn section_index(&self) -> Option<&Indexed> {
+        self.blocks.first().and_then(|b| b.index())
     }
 
     /// Render this section once to the provided `Encoder`.
@@ -82,12 +99,16 @@ where
 
             encoder.write_unescaped(block.html)?;
 
-            match block.tag {
+            match &block.tag {
                 Tag::Escaped => {
-                    self.contents.render_field_escaped(block.hash, block.name, encoder)?;
+                    self.contents.render_field_escaped(
+                        block.hash, block.name, encoder,
+                    )?;
                 }
                 Tag::Unescaped => {
-                    self.contents.render_field_unescaped(block.hash, block.name, encoder)?;
+                    self.contents.render_field_unescaped(
+                        block.hash, block.name, encoder,
+                    )?;
                 }
                 Tag::Section => {
                     self.contents.render_field_section(
@@ -102,6 +123,15 @@ where
                     self.contents.render_field_inverse(
                         block.hash,
                         block.name,
+                        self.slice(index..index + block.children as usize),
+                        encoder,
+                    )?;
+                    index += block.children as usize;
+                }
+                #[cfg(feature = "indexes")]
+                Tag::Indexed(indexed) => {
+                    self.contents.render_index_section(
+                        indexed,
                         self.slice(index..index + block.children as usize),
                         encoder,
                     )?;
