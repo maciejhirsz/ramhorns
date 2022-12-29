@@ -28,6 +28,7 @@ use syn::token::Comma;
 use syn::{Fields, ItemStruct, LitInt, LitStr, Path};
 
 use std::cmp::Ordering;
+use std::convert::TryFrom;
 use std::hash::{Hash, Hasher};
 
 type UnitFields = Punctuated<syn::Field, Comma>;
@@ -64,7 +65,49 @@ struct Ramhorns {
     md: Option<()>,
     flatten: Option<()>,
     rename: Option<LitStr>,
+    rename_all: Option<LitStr>,
     callback: Option<Path>,
+}
+
+enum RenameAll {
+    UpperCase,
+    PascalCase,
+    CamelCase,
+    SnakeCase,
+    ScreamingSnakeCase,
+    KebabCase,
+    ScreamingKebabCase,
+}
+impl TryFrom<LitStr> for RenameAll {
+    type Error = syn::Error;
+
+    fn try_from(value: LitStr) -> Result<Self, Self::Error> {
+        Ok(match value.value().as_str() {
+            "UPPERCASE" => Self::UpperCase,
+            "PascalCase" => Self::PascalCase,
+            "camelCase" => Self::CamelCase,
+            "sake_case" => Self::SnakeCase,
+            "SCREAMING_SNAKE_CASE" => Self::ScreamingSnakeCase,
+            "kebab-case" => Self::KebabCase,
+            "SCREAMING-KEBAB-CASE" => Self::ScreamingKebabCase,
+            _ => {
+                return Err(syn::Error::new(value.span(), "Invalid `rename_all`"));
+            }
+        })
+    }
+}
+impl RenameAll {
+    fn rename(&self, input: &str) -> String {
+        match &self {
+            Self::UpperCase => heck::ToTitleCase::to_title_case(input),
+            Self::PascalCase => heck::ToPascalCase::to_pascal_case(input),
+            Self::CamelCase => heck::ToLowerCamelCase::to_lower_camel_case(input),
+            Self::SnakeCase => heck::ToSnakeCase::to_snake_case(input),
+            Self::ScreamingSnakeCase => heck::ToShoutySnakeCase::to_shouty_snake_case(input),
+            Self::KebabCase => heck::ToKebabCase::to_kebab_case(input),
+            Self::ScreamingKebabCase => heck::ToShoutyKebabCase::to_shouty_kebab_case(input),
+        }
+    }
 }
 
 #[proc_macro_derive(Content, attributes(md, ramhorns))]
@@ -85,6 +128,24 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
         Fields::Named(fields) => fields.named.into_iter(),
         Fields::Unnamed(fields) => fields.unnamed.into_iter(),
         _ => unit_fields.into_iter(),
+    };
+
+    let rename_all = match Ramhorns::try_from_attributes(&item.attrs) {
+        Ok(Some(ramhorns)) => match ramhorns.rename_all {
+            Some(lit_str) => match RenameAll::try_from(lit_str) {
+                Ok(v) => Some(v),
+                Err(error) => {
+                    errors.push(error);
+                    None
+                }
+            },
+            None => None,
+        },
+        Ok(None) => None,
+        Err(err) => {
+            errors.push(err);
+            None
+        }
     };
 
     let mut flatten = Vec::new();
@@ -121,7 +182,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                     if let Some(path) = ramhorns.callback {
                         callback = Some(path);
                     }
-                },
+                }
                 Ok(None) => (),
                 Err(err) => errors.push(err),
             };
@@ -138,10 +199,14 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                     (name, quote!(#lit))
                 },
                 |ident| {
-                    let name = rename
-                        .as_ref()
-                        .cloned()
-                        .unwrap_or_else(|| ident.to_string());
+                    let name =
+                        rename
+                            .as_ref()
+                            .cloned()
+                            .unwrap_or_else(|| match rename_all.as_ref() {
+                                Some(rename) => rename.rename(ident.to_string().as_str()),
+                                None => ident.to_string(),
+                            });
                     (name, quote!(#ident))
                 },
             );

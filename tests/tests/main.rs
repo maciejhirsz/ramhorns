@@ -494,9 +494,7 @@ fn can_render_callback() {
 
     let tpl = Template::new("<div>{{body}}</div>").unwrap();
 
-    let html = tpl.render(&Post {
-        body: "One",
-    });
+    let html = tpl.render(&Post { body: "One" });
 
     assert_eq!(html, "<div>One+One</div>");
 }
@@ -684,6 +682,22 @@ fn derive_attributes() {
     });
 
     assert_eq!(html, "<h1></h1><head>This is actually head!</head>");
+
+    #[derive(Content)]
+    #[ramhorns(rename_all = "camelCase")]
+    struct RenameAll<'a> {
+        snake_name_one: &'a str,
+        snake_name_two: &'a str,
+    }
+
+    let tpl = Template::new("{{snakeNameOne}}{{snakeNameTwo}}").unwrap();
+
+    let render = tpl.render(&RenameAll {
+        snake_name_one: "1",
+        snake_name_two: "2",
+    });
+
+    assert_eq!(render, "12");
 }
 
 #[test]
@@ -759,7 +773,9 @@ fn simple_partials_extend() {
 
     assert_eq!(
         tpls.get("basic2.html").unwrap().render(&post),
-        read_to_string("more_templates/basic2.result").unwrap().trim_end()
+        read_to_string("more_templates/basic2.result")
+            .unwrap()
+            .trim_end()
     );
 }
 
