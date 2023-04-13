@@ -10,35 +10,54 @@
 use arrayvec::ArrayVec;
 use logos::Logos;
 
-use super::{hash_name, Block, Error, Tag, Template};
+use super::{hash_name, Block, Error, Template};
 use crate::Partials;
 
-#[derive(Logos)]
-#[logos(extras = Braces)]
-enum Opening {
-    #[token("{{", |_| Tag::Escaped)]
-    #[token("{{&", |_| Tag::Unescaped)]
-    #[token("{{{", |lex| {
-        // Flag that we will expect 3 closing braces
-        lex.extras = Braces::Three;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Logos)]
+#[logos(
+    skip r"[^{]+",
+    skip r"\{",
+    extras = Braces,
+)]
+pub enum Tag {
+    /// `{{escaped}}` tag
+    #[token("{{")]
+    Escaped,
 
-        Tag::Unescaped
-    })]
-    #[token("{{#", |_| Tag::Section)]
-    #[token("{{^", |_| Tag::Inverse)]
-    #[token("{{/", |_| Tag::Closing)]
-    #[token("{{>", |_| Tag::Partial)]
-    #[token("{{!", |_| Tag::Comment)]
-    Match(Tag),
+    /// `{{{unescaped}}}` tag
+    #[token("{{&")]
+    #[token("{{{", |lex| lex.extras = Braces::Three)]
+    Unescaped,
 
-    #[regex(r"[^{]+", logos::skip)]
-    #[token("{", logos::skip)]
-    #[error]
-    Err,
+    /// `{{#section}}` opening tag (with number of subsequent blocks it contains)
+    #[token("{{#")]
+    Section,
+
+    /// `{{^inverse}}` section opening tag (with number of subsequent blocks it contains)
+    #[token("{{^")]
+    Inverse,
+
+    /// `{{/closing}}` section tag
+    #[token("{{/")]
+    Closing,
+
+    /// `{{!comment}}` tag
+    #[token("{{!")]
+    Comment,
+
+    /// `{{>partial}}` tag
+    #[token("{{>")]
+    Partial,
+
+    /// Tailing html
+    Tail,
 }
 
 #[derive(Logos)]
-#[logos(extras = Braces)]
+#[logos(
+    skip r"[ ]+",
+    extras = Braces,
+)]
 enum Closing {
     #[token("}}", |lex| {
         // Force fail the match if we expected 3 braces
@@ -49,15 +68,11 @@ enum Closing {
 
     #[regex(r"[^ \}]+")]
     Ident,
-
-    #[regex(r"[ ]+", logos::skip)]
-    #[error]
-    Err,
 }
 
 /// Marker of how many braces we expect to match
 #[derive(PartialEq, Eq, Clone, Copy)]
-enum Braces {
+pub enum Braces {
     Two = 2,
     Three = 3,
 }
@@ -76,15 +91,10 @@ impl<'tpl> Template<'tpl> {
         partials: &mut impl Partials<'tpl>,
     ) -> Result<usize, Error> {
         let mut last = 0;
-        let mut lex = Opening::lexer(source);
+        let mut lex = Tag::lexer(source);
         let mut stack = ArrayVec::<usize, 16>::new();
 
-        while let Some(token) = lex.next() {
-            let tag = match token {
-                Opening::Match(tag) => tag,
-                Opening::Err => return Err(Error::UnclosedTag),
-            };
-
+        while let Some(tag) = lex.next().transpose().map_err(|()| Error::UnclosedTag)? {
             // Grab HTML from before the token
             // TODO: add lex.before() that yields source slice
             // in front of the token:
@@ -103,47 +113,45 @@ impl<'tpl> Template<'tpl> {
                 return Err(Error::UnclosedTag);
             }
             let mut name = closing.slice();
-                    
+
             match tag {
                 Tag::Escaped | Tag::Unescaped => {
                     loop {
                         match closing.next() {
-                            Some(Closing::Ident) => {
+                            Some(Ok(Closing::Ident)) => {
                                 self.blocks.push(Block::new(html, name, Tag::Section));
                                 name = closing.slice();
                                 html = "";
-                            },
-                            Some(Closing::Match) => {
+                            }
+                            Some(Ok(Closing::Match)) => {
                                 self.blocks.push(Block::new(html, name, tag));
                                 break;
                             }
                             _ => return Err(Error::UnclosedTag),
                         }
                     }
-                    
+
                     let d = self.blocks.len() - tail_idx - 1;
                     for i in 0..d {
                         self.blocks[tail_idx + i].children = (d - i) as u32;
                     }
                 }
-                Tag::Section | Tag::Inverse => {
-                    loop {
-                        match closing.next() {
-                            Some(Closing::Ident) => {
-                                stack.try_push(self.blocks.len())?;
-                                self.blocks.push(Block::new(html, name, Tag::Section));
-                                name = closing.slice();
-                                html = "";
-                            },
-                            Some(Closing::Match) => {
-                                stack.try_push(self.blocks.len())?;
-                                self.blocks.push(Block::new(html, name, tag));
-                                break;
-                            }
-                            _ => return Err(Error::UnclosedTag),
+                Tag::Section | Tag::Inverse => loop {
+                    match closing.next() {
+                        Some(Ok(Closing::Ident)) => {
+                            stack.try_push(self.blocks.len())?;
+                            self.blocks.push(Block::new(html, name, Tag::Section));
+                            name = closing.slice();
+                            html = "";
                         }
+                        Some(Ok(Closing::Match)) => {
+                            stack.try_push(self.blocks.len())?;
+                            self.blocks.push(Block::new(html, name, tag));
+                            break;
+                        }
+                        _ => return Err(Error::UnclosedTag),
                     }
-                }
+                },
                 Tag::Closing => {
                     self.blocks.push(Block::nameless(html, Tag::Closing));
 
@@ -161,24 +169,24 @@ impl<'tpl> Template<'tpl> {
                         }
                         Ok(())
                     };
-                    
+
                     pop_section(name)?;
                     loop {
                         match closing.next() {
-                            Some(Closing::Ident) => {
+                            Some(Ok(Closing::Ident)) => {
                                 pop_section(closing.slice())?;
-                            },
-                            Some(Closing::Match) => break,
+                            }
+                            Some(Ok(Closing::Match)) => break,
                             _ => return Err(Error::UnclosedTag),
                         }
                     }
                 }
                 Tag::Partial => {
                     match closing.next() {
-                        Some(Closing::Match) => {},
+                        Some(Ok(Closing::Match)) => {}
                         _ => return Err(Error::UnclosedTag),
                     }
-                    
+
                     self.blocks.push(Block::nameless(html, tag));
                     let partial = partials.get_partial(name)?;
                     self.blocks.extend_from_slice(&partial.blocks);
@@ -187,8 +195,8 @@ impl<'tpl> Template<'tpl> {
                 _ => {
                     loop {
                         match closing.next() {
-                            Some(Closing::Ident) => continue,
-                            Some(Closing::Match) => break,
+                            Some(Ok(Closing::Ident)) => continue,
+                            Some(Ok(Closing::Match)) => break,
                             _ => return Err(Error::UnclosedTag),
                         }
                     }
