@@ -13,11 +13,15 @@ use logos::Logos;
 use super::{hash_name, Block, Error, Template};
 use crate::Partials;
 
+#[derive(Debug, PartialEq, Clone, Copy, Default)]
+pub struct ParseError;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Logos)]
 #[logos(
     skip r"[^{]+",
     skip r"\{",
     extras = Braces,
+    error = ParseError,
 )]
 pub enum Tag {
     /// `{{escaped}}` tag
@@ -51,6 +55,12 @@ pub enum Tag {
 
     /// Tailing html
     Tail,
+}
+
+impl From<ParseError> for Error {
+    fn from(_: ParseError) -> Error {
+        Error::UnclosedTag
+    }
 }
 
 #[derive(Logos)]
@@ -94,7 +104,9 @@ impl<'tpl> Template<'tpl> {
         let mut lex = Tag::lexer(source);
         let mut stack = ArrayVec::<usize, 16>::new();
 
-        while let Some(tag) = lex.next().transpose().map_err(|()| Error::UnclosedTag)? {
+        while let Some(tag) = lex.next() {
+            let tag = tag?;
+
             // Grab HTML from before the token
             // TODO: add lex.before() that yields source slice
             // in front of the token:
