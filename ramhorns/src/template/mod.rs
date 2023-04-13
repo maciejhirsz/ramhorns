@@ -7,22 +7,23 @@
 // You should have received a copy of the GNU General Public License
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
-mod parse;
-mod section;
-
 use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::io;
 use std::path::Path;
 
+use beef::Cow;
+use fnv::FnvHasher;
+
 use crate::encoding::EscapingIOEncoder;
 use crate::Partials;
 use crate::{Content, Error};
 
-use beef::Cow;
-use fnv::FnvHasher;
+mod parse;
+mod section;
 
 pub use section::Section;
+pub use parse::Tag;
 
 /// A preprocessed form of the plain text template, ready to be rendered
 /// with data contained in types implementing the `Content` trait.
@@ -125,33 +126,6 @@ impl<'tpl> Template<'tpl> {
     pub fn source(&self) -> &str {
         &self.source
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Tag {
-    /// `{{escaped}}` tag
-    Escaped,
-
-    /// `{{{unescaped}}}` tag
-    Unescaped,
-
-    /// `{{#section}}` opening tag (with number of subsequent blocks it contains)
-    Section,
-
-    /// `{{^inverse}}` section opening tag (with number of subsequent blocks it contains)
-    Inverse,
-
-    /// `{{/closing}}` section tag
-    Closing,
-
-    /// `{{!comment}}` tag
-    Comment,
-
-    /// `{{>partial}}` tag
-    Partial,
-
-    /// Tailing html
-    Tail,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
