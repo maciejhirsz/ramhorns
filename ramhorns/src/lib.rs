@@ -101,6 +101,7 @@ pub use ramhorns_derive::Content;
 ///
 /// For faster or DOS-resistant hashes, it is recommended to use
 /// [aHash](https://docs.rs/ahash/latest/ahash/) `RandomState` as hasher.
+#[derive(Debug)]
 pub struct Ramhorns<H = fnv::FnvBuildHasher> {
     partials: HashMap<Cow<'static, str>, Template<'static>, H>,
     dir: PathBuf,

@@ -27,6 +27,7 @@ pub use parse::Tag;
 
 /// A preprocessed form of the plain text template, ready to be rendered
 /// with data contained in types implementing the `Content` trait.
+#[derive(Debug)]
 pub struct Template<'tpl> {
     /// Parsed blocks!
     blocks: Vec<Block<'tpl>>,
