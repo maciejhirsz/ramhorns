@@ -65,11 +65,11 @@ pub trait ContentSequence: Combine + Sized + Copy {
 
     /// Render a field by the hash **or** string of its name, as a section.
     #[inline]
-    fn render_field_section<'section, P, E>(
+    fn render_field_section<P, E>(
         &self,
         _hash: u64,
         _name: &str,
-        _section: Section<'section, P>,
+        _section: Section<'_, P>,
         _encoder: &mut E,
     ) -> Result<(), E::Error>
     where
@@ -81,11 +81,11 @@ pub trait ContentSequence: Combine + Sized + Copy {
 
     /// Render a field, by the hash of **or** string its name, as an inverse section.
     #[inline]
-    fn render_field_inverse<'section, P, E>(
+    fn render_field_inverse<P, E>(
         &self,
         _hash: u64,
         _name: &str,
-        _section: Section<'section, P>,
+        _section: Section<'_, P>,
         _encoder: &mut E,
     ) -> Result<(), E::Error>
     where

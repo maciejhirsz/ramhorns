@@ -224,7 +224,7 @@ impl<H: BuildHasher + Default> Ramhorns<H> {
     // Unsafe to expose as it loads the template from arbitrary path.
     #[inline]
     fn load_internal(&mut self, path: &Path, name: Cow<'static, str>) -> Result<(), Error> {
-        let file = match std::fs::read_to_string(&path) {
+        let file = match std::fs::read_to_string(path) {
             Ok(file) => Ok(file),
             Err(e) if e.kind() == ErrorKind::NotFound => {
                 Err(Error::NotFound(name.to_string().into()))
