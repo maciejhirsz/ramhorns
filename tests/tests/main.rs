@@ -747,6 +747,30 @@ fn simple_partials_folder() {
 }
 
 #[test]
+fn simple_partials_insert() {
+    use std::fs::read_to_string;
+
+    let mut tpls: Ramhorns = Ramhorns::from_folder("templates").unwrap();
+    let post = Post {
+        title: "Hello, Ramhorns!",
+        body: "This is a really simple test of the rendering!",
+    };
+
+    tpls.insert("{{>head.html}} OH YEAH", "yeah.html").unwrap();
+    assert_eq!(
+        tpls.get("yeah.html").unwrap().render(&post),
+        read_to_string("templates/yeah.result").unwrap().trim_end()
+    );
+    tpls.insert("{{>style.css}} OH YEAH", "style.html").unwrap();
+    assert_eq!(
+        tpls.get("style.html").unwrap().render(&post),
+        read_to_string("templates/style.result")
+            .unwrap()
+            .trim_end()
+    );
+}
+
+#[test]
 fn simple_partials_extend() {
     use std::fs::read_to_string;
 

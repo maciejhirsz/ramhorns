@@ -224,15 +224,28 @@ impl<H: BuildHasher + Default> Ramhorns<H> {
     // Unsafe to expose as it loads the template from arbitrary path.
     #[inline]
     fn load_internal(&mut self, path: &Path, name: Cow<'static, str>) -> Result<(), Error> {
-        let file = match std::fs::read_to_string(&path) {
+        let file = match std::fs::read_to_string(path) {
             Ok(file) => Ok(file),
             Err(e) if e.kind() == ErrorKind::NotFound => {
                 Err(Error::NotFound(name.to_string().into()))
             }
             Err(e) => Err(Error::Io(e)),
         }?;
-        let template = Template::load(file, self)?;
-        self.partials.insert(name, template);
+        self.insert(file, name)
+    }
+
+    /// Insert a template parsed from `src` with the name `name`.
+    /// If a template with this name is present, it gets replaced.
+    ///
+    /// # Warning
+    /// This can load partials from an arbitrary path. Use only with trusted source.
+    pub fn insert<S, T>(&mut self, src: S, name: T) -> Result<(), Error>
+    where
+        S: Into<Cow<'static, str>>,
+        T: Into<Cow<'static, str>>
+    {
+        let template = Template::load(src, self)?;
+        self.partials.insert(name.into(), template);
         Ok(())
     }
 }
