@@ -9,8 +9,8 @@
 
 use super::{Block, Tag};
 use crate::encoding::Encoder;
-use crate::Content;
 use crate::traits::{Combine, ContentSequence};
+use crate::Content;
 use std::ops::Range;
 
 /// A section of a `Template` that can be rendered individually, usually delimited by
@@ -62,8 +62,7 @@ where
 
     /// The section without the last `Content` in the stack
     #[inline]
-    pub fn without_last(self) -> Section<'section, C::Previous>
-    {
+    pub fn without_last(self) -> Section<'section, C::Previous> {
         Section {
             blocks: self.blocks,
             contents: self.contents.crawl_back(),
@@ -84,10 +83,12 @@ where
 
             match block.tag {
                 Tag::Escaped => {
-                    self.contents.render_field_escaped(block.hash, block.name, encoder)?;
+                    self.contents
+                        .render_field_escaped(block.hash, block.name, encoder)?;
                 }
                 Tag::Unescaped => {
-                    self.contents.render_field_unescaped(block.hash, block.name, encoder)?;
+                    self.contents
+                        .render_field_unescaped(block.hash, block.name, encoder)?;
                 }
                 Tag::Section => {
                     self.contents.render_field_section(

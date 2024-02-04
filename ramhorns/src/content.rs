@@ -9,7 +9,7 @@
 
 use crate::encoding::Encoder;
 use crate::template::{Section, Template};
-use crate::traits::{ContentSequence};
+use crate::traits::ContentSequence;
 
 use arrayvec::ArrayVec;
 use std::borrow::{Borrow, Cow, ToOwned};
@@ -52,11 +52,7 @@ pub trait Content {
 
     /// Render a section with self.
     #[inline]
-    fn render_section<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -70,11 +66,7 @@ pub trait Content {
 
     /// Render a section with self.
     #[inline]
-    fn render_inverse<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_inverse<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -316,11 +308,7 @@ impl<T: Content> Content for Option<T> {
     }
 
     #[inline]
-    fn render_section<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -366,11 +354,7 @@ impl<T: Content, U> Content for Result<T, U> {
     }
 
     #[inline]
-    fn render_section<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -390,11 +374,7 @@ impl<T: Content> Content for Vec<T> {
     }
 
     #[inline]
-    fn render_section<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -414,11 +394,7 @@ impl<T: Content> Content for [T] {
     }
 
     #[inline]
-    fn render_section<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -438,11 +414,7 @@ impl<T: Content, const N: usize> Content for [T; N] {
     }
 
     #[inline]
-    fn render_section<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -462,11 +434,7 @@ impl<T: Content, const N: usize> Content for ArrayVec<T, N> {
     }
 
     #[inline]
-    fn render_section<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -491,11 +459,7 @@ where
 
     /// Render a section with self.
     #[inline]
-    fn render_section<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -578,11 +542,7 @@ where
 
     /// Render a section with self.
     #[inline]
-    fn render_section<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
