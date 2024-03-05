@@ -96,6 +96,30 @@ pub use template::{Section, Template};
 #[cfg(feature = "export_derive")]
 pub use ramhorns_derive::Content;
 
+/// `Ramhorms::get` previously had a where-bound
+/// `for<'a> Cow<'a, str>: std::borrow::Borrow<S>`.
+///
+/// This where-bound ended up always constraining `S` to `str`.
+///
+/// There are two potentially applicable impls here:
+/// - `impl<T, U> Borrow<T> for Cow<'_, T, U>` from beef
+/// - `impl<T> Borrow<T> for T` from std
+/// The impl from std always resulted in a higher-ranked region error,
+/// previously causing us to only consider the first impl, constraining `S`.
+/// This behavior changed in https://github.com/rust-lang/rust/pull/119820,
+/// causing that where-bound to be ambiguous.
+mod private {
+    pub struct BackCompat;
+    pub trait ConstrainToStr<S: ?Sized> {
+        fn convert(value: &S) -> &str;
+    }
+    impl ConstrainToStr<str> for BackCompat {
+        fn convert(value: &str) -> &str {
+            value
+        }
+    }
+}
+
 /// Aggregator for [`Template`s](./struct.Template.html), that allows them to
 /// be loaded from the file system and use partials: `{{>partial}}`
 ///
@@ -203,10 +227,11 @@ impl<H: BuildHasher + Default> Ramhorns<H> {
     /// Get the template with the given name, if it exists.
     pub fn get<S>(&self, name: &S) -> Option<&Template<'static>>
     where
-        for<'a> Cow<'a, str>: std::borrow::Borrow<S>,
+        private::BackCompat: private::ConstrainToStr<S>,
         S: std::hash::Hash + AsRef<Path> + Eq + ?Sized,
     {
-        self.partials.get(name)
+        self.partials
+            .get(<private::BackCompat as private::ConstrainToStr<S>>::convert(name))
     }
 
     /// Get the template with the given name. If the template doesn't exist,
