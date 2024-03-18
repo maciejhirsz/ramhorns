@@ -76,6 +76,7 @@
 
 #![warn(missing_docs)]
 use std::collections::HashMap;
+use std::fmt;
 use std::hash::BuildHasher;
 use std::path::{Path, PathBuf};
 
@@ -104,6 +105,12 @@ pub use ramhorns_derive::Content;
 pub struct Ramhorns<H = fnv::FnvBuildHasher> {
     partials: HashMap<Cow<'static, str>, Template<'static>, H>,
     dir: PathBuf,
+}
+
+impl<H> fmt::Debug for Ramhorns<H> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Ramhorns").field("dir", &self.dir).finish()
+    }
 }
 
 impl<H: BuildHasher + Default> Ramhorns<H> {

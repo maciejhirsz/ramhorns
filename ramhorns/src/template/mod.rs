@@ -7,6 +7,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
+use std::fmt;
 use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::io;
@@ -39,6 +40,14 @@ pub struct Template<'tpl> {
 
     /// Source from which this template was parsed.
     source: Cow<'tpl, str>,
+}
+
+impl<'tpl> fmt::Debug for Template<'tpl> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Template")
+            .field("source", &self.source)
+            .finish()
+    }
 }
 
 impl<'tpl> Template<'tpl> {
