@@ -22,7 +22,10 @@ use crate::{Content, Error};
 mod parse;
 mod section;
 
+#[cfg(not(feature = "indexes"))]
 pub use parse::Tag;
+#[cfg(feature = "indexes")]
+pub use parse::{Index::Last, Indexed, Tag};
 pub use section::Section;
 
 /// A preprocessed form of the plain text template, ready to be rendered
@@ -167,6 +170,15 @@ impl<'tpl> Block<'tpl> {
             children: 0,
         }
     }
+    /// Get the index if this block refers to a section index.
+    #[cfg(feature = "indexes")]
+    #[inline]
+    pub(crate) fn index(&self) -> Option<&Indexed> {
+        match &self.tag {
+            Tag::Indexed(indexed) => Some(indexed),
+            _ => None,
+        }
+    }
 }
 
 struct NoPartials;
@@ -221,6 +233,29 @@ mod test {
                 Block::new("</title><h1>", "title", Tag::Escaped),
                 Block::new("</h1><div>", "body", Tag::Unescaped),
                 Block::nameless("</div>", Tag::Tail),
+            ]
+        );
+    }
+
+    #[cfg(feature = "indexes")]
+    #[test]
+    fn blocks() {
+        let source =
+            "{{#person}}{{^-last}}{{{name}}}{{/-last}}{{#-last}}{{{name}}}{{/-last}}{{/person}}";
+        let tpl = Template::new(source).unwrap();
+
+        assert_eq!(
+            &tpl.blocks,
+            &[
+                Block::new("", "person", Tag::Section).children(7),
+                Block::new("", "-last", Tag::Indexed(Indexed::Exclude(Last))).children(2),
+                Block::new("", "name", Tag::Unescaped),
+                Block::nameless("", Tag::Closing),
+                Block::new("", "-last", Tag::Indexed(Indexed::Include(Last))).children(2),
+                Block::new("", "name", Tag::Unescaped),
+                Block::nameless("", Tag::Closing),
+                Block::nameless("", Tag::Closing),
+                Block::nameless("", Tag::Tail),
             ]
         );
     }

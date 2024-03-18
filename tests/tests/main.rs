@@ -682,6 +682,22 @@ fn derive_attributes() {
     });
 
     assert_eq!(html, "<h1></h1><head>This is actually head!</head>");
+
+    #[derive(Content)]
+    #[ramhorns(rename_all = "camelCase")]
+    struct RenameAll<'a> {
+        snake_name_one: &'a str,
+        snake_name_two: &'a str,
+    }
+
+    let tpl = Template::new("{{snakeNameOne}}{{snakeNameTwo}}").unwrap();
+
+    let render = tpl.render(&RenameAll {
+        snake_name_one: "1",
+        snake_name_two: "2",
+    });
+
+    assert_eq!(render, "12");
 }
 
 #[test]
@@ -804,4 +820,81 @@ fn illegal_partials() {
     } else {
         panic!("Partials loaded out of the allowed directory");
     }
+}
+
+#[cfg(feature = "indexes")]
+#[test]
+fn section_index() {
+    let source = "{{#people}}{{#-0}}{{#-last}}{{{name}}}{{/-last}}{{/-0}}{{/people}}";
+    let tpl = Template::new(source).unwrap();
+
+    #[derive(Content)]
+    struct Person {
+        name: String,
+    }
+
+    #[derive(Content)]
+    struct Api {
+        people: Vec<Vec<Person>>,
+    }
+
+    let render = tpl.render(&Api {
+        people: vec![
+            vec![
+                Person {
+                    name: "first".to_string(),
+                },
+                Person {
+                    name: "last".to_string(),
+                },
+            ],
+            vec![
+                Person {
+                    name: "second first".to_string(),
+                },
+                Person {
+                    name: "second last".to_string(),
+                },
+            ],
+        ],
+    });
+
+    assert_eq!(render, "last");
+}
+
+#[cfg(feature = "indexes")]
+#[test]
+fn section_index_exclude() {
+    let source =
+        "People:\n{{#people}}name: {{{name}}}|{{^-last}}{{#-0}}(Index 0){{/-0}}{{^-0}}(Not Index 0){{/-0}},\n{{/-last}}{{#-last}}(Index Last){{/-last}}{{/people}}";
+    let tpl = Template::new(source).unwrap();
+
+    #[derive(Content)]
+    struct Person {
+        name: String,
+    }
+
+    #[derive(Content)]
+    struct Api {
+        people: Vec<Person>,
+    }
+
+    let render = tpl.render(&Api {
+        people: vec![
+            Person {
+                name: "first".to_string(),
+            },
+            Person {
+                name: "second".to_string(),
+            },
+            Person {
+                name: "last".to_string(),
+            },
+        ],
+    });
+
+    assert_eq!(
+        render,
+        "People:\nname: first|(Index 0),\nname: second|(Not Index 0),\nname: last|(Index Last)"
+    );
 }

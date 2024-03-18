@@ -14,6 +14,9 @@ jobs:
           - stable
           - beta
           - nightly
+        features:
+          - "default"
+          - "indexes"
         os:
           - ubuntu-latest
     runs-on: ${{ matrix.os }}
@@ -24,4 +27,4 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --verbose --features ${{ matrix.features }}

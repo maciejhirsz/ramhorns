@@ -8,6 +8,8 @@
 // along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
 
 use crate::encoding::Encoder;
+#[cfg(feature = "indexes")]
+use crate::template::Indexed;
 use crate::template::{Section, Template};
 use crate::traits::ContentSequence;
 
@@ -135,6 +137,23 @@ pub trait Content {
     ) -> Result<bool, E::Error>
     where
         C: ContentSequence,
+        E: Encoder,
+    {
+        Ok(false)
+    }
+
+    /// Render an index based section.
+    /// If successful, returns `true` if the index exists in this content, otherwise `false`.
+    #[cfg(feature = "indexes")]
+    #[inline]
+    fn render_index_section<'section, P, E>(
+        &self,
+        _indexed: &Indexed,
+        _section: Section<'section, P>,
+        _encoder: &mut E,
+    ) -> Result<bool, E::Error>
+    where
+        P: ContentSequence,
         E: Encoder,
     {
         Ok(false)
@@ -379,11 +398,118 @@ impl<T: Content> Content for Vec<T> {
         C: ContentSequence,
         E: Encoder,
     {
+        #[cfg(feature = "indexes")]
+        for (index, item) in self.iter().enumerate() {
+            IndexBasedRender {
+                length: self.len(),
+                index,
+                item,
+            }
+            .render_section(section, encoder)?;
+        }
+        #[cfg(not(feature = "indexes"))]
         for item in self.iter() {
             item.render_section(section, encoder)?;
         }
 
         Ok(())
+    }
+}
+
+#[cfg(feature = "indexes")]
+struct IndexBasedRender<'a, T> {
+    length: usize,
+    index: usize,
+    item: &'a T,
+}
+#[cfg(feature = "indexes")]
+impl<T: Content> Content for IndexBasedRender<'_, T> {
+    #[inline]
+    fn is_truthy(&self) -> bool {
+        true
+    }
+
+    /// Render a section with self.
+    #[inline]
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
+    where
+        C: ContentSequence,
+        E: Encoder,
+    {
+        if self.is_truthy() {
+            section.with(self).render(encoder)
+        } else {
+            Ok(())
+        }
+    }
+
+    #[inline]
+    fn render_index_section<'section, P, E>(
+        &self,
+        indexed: &Indexed,
+        section: Section<'section, P>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error>
+    where
+        P: ContentSequence,
+        E: Encoder,
+    {
+        if indexed.is_truthy(self.length, self.index) {
+            self.item.render_section(section, encoder)?;
+        }
+        Ok(true)
+    }
+
+    fn render_field_escaped<E>(
+        &self,
+        hash: u64,
+        name: &str,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error>
+    where
+        E: Encoder,
+    {
+        self.item.render_field_escaped(hash, name, encoder)
+    }
+
+    fn render_field_unescaped<E>(
+        &self,
+        hash: u64,
+        name: &str,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error>
+    where
+        E: Encoder,
+    {
+        self.item.render_field_unescaped(hash, name, encoder)
+    }
+
+    fn render_field_section<C, E>(
+        &self,
+        hash: u64,
+        name: &str,
+        section: Section<C>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error>
+    where
+        C: ContentSequence,
+        E: Encoder,
+    {
+        self.item.render_field_section(hash, name, section, encoder)
+    }
+
+    fn render_field_inverse<C, E>(
+        &self,
+        hash: u64,
+        name: &str,
+        section: Section<C>,
+        encoder: &mut E,
+    ) -> Result<bool, E::Error>
+    where
+        C: ContentSequence,
+        E: Encoder,
+    {
+        self.item.render_field_inverse(hash, name, section, encoder)
     }
 }
 
@@ -712,6 +838,21 @@ macro_rules! impl_pointer_types {
                     E: Encoder,
                 {
                     self.deref().render_field_inverse(hash, name, section, encoder)
+                }
+
+                #[cfg(feature = "indexes")]
+                #[inline]
+                fn render_index_section<'section, P, E>(
+                    &self,
+                    indexed: &Indexed,
+                    section: Section<'section, P>,
+                    encoder: &mut E,
+                ) -> Result<bool, E::Error>
+                where
+                    P: ContentSequence,
+                    E: Encoder,
+                {
+                    self.deref().render_index_section(indexed, section, encoder)
                 }
             }
         )*
