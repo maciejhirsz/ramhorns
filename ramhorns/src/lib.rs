@@ -231,8 +231,21 @@ impl<H: BuildHasher + Default> Ramhorns<H> {
             }
             Err(e) => Err(Error::Io(e)),
         }?;
-        let template = Template::load(file, self)?;
-        self.partials.insert(name, template);
+        self.insert(file, name)
+    }
+
+    /// Insert a template parsed from `src` with the name `name`.
+    /// If a template with this name is present, it gets replaced.
+    ///
+    /// # Warning
+    /// This can load partials from an arbitrary path. Use only with trusted source.
+    pub fn insert<S, T>(&mut self, src: S, name: T) -> Result<(), Error>
+    where
+        S: Into<Cow<'static, str>>,
+        T: Into<Cow<'static, str>>
+    {
+        let template = Template::load(src, self)?;
+        self.partials.insert(name.into(), template);
         Ok(())
     }
 }
