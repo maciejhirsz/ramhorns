@@ -201,11 +201,7 @@ impl<H: BuildHasher + Default> Ramhorns<H> {
     }
 
     /// Get the template with the given name, if it exists.
-    pub fn get<S>(&self, name: &S) -> Option<&Template<'static>>
-    where
-        for<'a> Cow<'a, str>: std::borrow::Borrow<S>,
-        S: std::hash::Hash + AsRef<Path> + Eq + ?Sized,
-    {
+    pub fn get(&self, name: &str) -> Option<&Template<'static>> {
         self.partials.get(name)
     }
 
@@ -242,7 +238,7 @@ impl<H: BuildHasher + Default> Ramhorns<H> {
     pub fn insert<S, T>(&mut self, src: S, name: T) -> Result<(), Error>
     where
         S: Into<Cow<'static, str>>,
-        T: Into<Cow<'static, str>>
+        T: Into<Cow<'static, str>>,
     {
         let template = Template::load(src, self)?;
         self.partials.insert(name.into(), template);
