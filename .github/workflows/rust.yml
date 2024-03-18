@@ -15,7 +15,7 @@ jobs:
           - beta
           - nightly
         features:
-          - ""
+          - "default"
           - "indexes"
         os:
           - ubuntu-latest
