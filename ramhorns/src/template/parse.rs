@@ -150,17 +150,11 @@ enum Closing {
 }
 
 /// Marker of how many braces we expect to match
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, Default)]
 pub enum Braces {
+    #[default]
     Two = 2,
     Three = 3,
-}
-
-impl Default for Braces {
-    #[inline]
-    fn default() -> Self {
-        Braces::Two
-    }
 }
 
 impl<'tpl> Template<'tpl> {
@@ -199,11 +193,7 @@ impl<'tpl> Template<'tpl> {
                     loop {
                         match closing.next() {
                             Some(Ok(Closing::Ident)) => {
-                                self.blocks.push(Block::new(
-                                    html,
-                                    name,
-                                    Tag::Section,
-                                ));
+                                self.blocks.push(Block::new(html, name, Tag::Section));
                                 name = closing.slice();
                                 html = "";
                             }
@@ -224,11 +214,7 @@ impl<'tpl> Template<'tpl> {
                     match closing.next() {
                         Some(Ok(Closing::Ident)) => {
                             stack.try_push(self.blocks.len())?;
-                            self.blocks.push(Block::new(
-                                html,
-                                name,
-                                Tag::Section,
-                            ));
+                            self.blocks.push(Block::new(html, name, Tag::Section));
                             name = closing.slice();
                             html = "";
                         }
@@ -237,13 +223,11 @@ impl<'tpl> Template<'tpl> {
                             #[cfg(feature = "indexes")]
                             let tag = match name.strip_prefix("-") {
                                 Some(index) if tag == Tag::Section => {
-                                    Tag::Indexed(Indexed::Include(
-                                        Index::try_from(index)?,
-                                    ))
+                                    Tag::Indexed(Indexed::Include(Index::try_from(index)?))
                                 }
-                                Some(index) => Tag::Indexed(Indexed::Exclude(
-                                    Index::try_from(index)?,
-                                )),
+                                Some(index) => {
+                                    Tag::Indexed(Indexed::Exclude(Index::try_from(index)?))
+                                }
                                 None => tag,
                             };
                             self.blocks.push(Block::new(html, name, tag));
@@ -261,16 +245,14 @@ impl<'tpl> Template<'tpl> {
                     let mut pop_section = |name| {
                         let hash = hash_name(name);
 
-                        let head_idx = stack.pop().ok_or_else(|| {
-                            Error::UnopenedSection(name.into())
-                        })?;
+                        let head_idx = stack
+                            .pop()
+                            .ok_or_else(|| Error::UnopenedSection(name.into()))?;
                         let head = &mut self.blocks[head_idx];
                         head.children = (tail_idx - head_idx) as u32;
 
                         if head.hash != hash {
-                            return Err(Error::UnclosedSection(
-                                head.name.into(),
-                            ));
+                            return Err(Error::UnclosedSection(head.name.into()));
                         }
                         Ok(())
                     };

@@ -10,8 +10,8 @@
 //! Utilities dealing with writing the bits of a template or data to the output and
 //! escaping special HTML characters.
 
-use std::io;
 use std::fmt;
+use std::io;
 
 #[cfg(feature = "pulldown-cmark")]
 use pulldown_cmark::{html, Event, Parser};
@@ -30,7 +30,8 @@ pub trait Encoder {
 
     #[cfg(feature = "pulldown-cmark")]
     /// Write HTML from an `Iterator` of `pulldown_cmark` `Event`s.
-    fn write_html<'a, I: Iterator<Item = Event<'a>>>(&mut self, iter: I) -> Result<(), Self::Error>;
+    fn write_html<'a, I: Iterator<Item = Event<'a>>>(&mut self, iter: I)
+        -> Result<(), Self::Error>;
 
     /// Write a `Display` implementor to this `Encoder` in plain mode.
     fn format_unescaped<D: fmt::Display>(&mut self, display: D) -> Result<(), Self::Error>;
@@ -86,9 +87,7 @@ pub(crate) struct EscapingIOEncoder<W: io::Write> {
 impl<W: io::Write> EscapingIOEncoder<W> {
     #[inline]
     pub fn new(inner: W) -> Self {
-        Self {
-            inner
-        }
+        Self { inner }
     }
 
     /// Same as `EscapingStringEncoder`, but dealing with byte arrays and writing to
@@ -190,7 +189,10 @@ impl Encoder for String {
 
     #[cfg(feature = "pulldown-cmark")]
     #[inline]
-    fn write_html<'a, I: Iterator<Item = Event<'a>>>(&mut self, iter: I) -> Result<(), Self::Error> {
+    fn write_html<'a, I: Iterator<Item = Event<'a>>>(
+        &mut self,
+        iter: I,
+    ) -> Result<(), Self::Error> {
         html::push_html(self, iter);
 
         Ok(())

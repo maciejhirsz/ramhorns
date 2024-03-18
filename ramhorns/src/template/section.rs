@@ -101,14 +101,12 @@ where
 
             match &block.tag {
                 Tag::Escaped => {
-                    self.contents.render_field_escaped(
-                        block.hash, block.name, encoder,
-                    )?;
+                    self.contents
+                        .render_field_escaped(block.hash, block.name, encoder)?;
                 }
                 Tag::Unescaped => {
-                    self.contents.render_field_unescaped(
-                        block.hash, block.name, encoder,
-                    )?;
+                    self.contents
+                        .render_field_unescaped(block.hash, block.name, encoder)?;
                 }
                 Tag::Section => {
                     self.contents.render_field_section(

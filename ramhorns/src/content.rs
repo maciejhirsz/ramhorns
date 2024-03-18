@@ -40,10 +40,7 @@ pub trait Content {
     ///
     /// This will escape HTML characters, eg: `<` will become `&lt;`.
     #[inline]
-    fn render_escaped<E: Encoder>(
-        &self,
-        _encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    fn render_escaped<E: Encoder>(&self, _encoder: &mut E) -> Result<(), E::Error> {
         Ok(())
     }
 
@@ -51,20 +48,13 @@ pub trait Content {
     ///
     /// This doesn't perform any escaping at all.
     #[inline]
-    fn render_unescaped<E: Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         self.render_escaped(encoder)
     }
 
     /// Render a section with self.
     #[inline]
-    fn render_section<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -78,11 +68,7 @@ pub trait Content {
 
     /// Render a section with self.
     #[inline]
-    fn render_inverse<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_inverse<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -193,18 +179,12 @@ impl Content for str {
     }
 
     #[inline]
-    fn render_escaped<E: Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         encoder.write_escaped(self)
     }
 
     #[inline]
-    fn render_unescaped<E: Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         encoder.write_unescaped(self)
     }
 }
@@ -221,18 +201,12 @@ impl Content for String {
     }
 
     #[inline]
-    fn render_escaped<E: Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         encoder.write_escaped(self)
     }
 
     #[inline]
-    fn render_unescaped<E: Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         encoder.write_unescaped(self)
     }
 }
@@ -249,10 +223,7 @@ impl Content for bool {
     }
 
     #[inline]
-    fn render_escaped<E: Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         // Nothing to escape here
         encoder.write_unescaped(if *self { "true" } else { "false" })
     }
@@ -283,9 +254,7 @@ macro_rules! impl_number_types {
     }
 }
 
-impl_number_types!(
-    u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize
-);
+impl_number_types!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
 
 impl Content for f32 {
     #[inline]
@@ -300,10 +269,7 @@ impl Content for f32 {
     }
 
     #[inline]
-    fn render_escaped<E: Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         // Nothing to escape here
         encoder.format_unescaped(self)
     }
@@ -322,10 +288,7 @@ impl Content for f64 {
     }
 
     #[inline]
-    fn render_escaped<E: Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         // Nothing to escape here
         encoder.format_unescaped(self)
     }
@@ -346,10 +309,7 @@ impl<T: Content> Content for Option<T> {
     }
 
     #[inline]
-    fn render_escaped<E: Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         if let Some(inner) = self {
             inner.render_escaped(encoder)?;
         }
@@ -358,10 +318,7 @@ impl<T: Content> Content for Option<T> {
     }
 
     #[inline]
-    fn render_unescaped<E: Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         if let Some(ref inner) = self {
             inner.render_unescaped(encoder)?;
         }
@@ -370,11 +327,7 @@ impl<T: Content> Content for Option<T> {
     }
 
     #[inline]
-    fn render_section<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -402,10 +355,7 @@ impl<T: Content, U> Content for Result<T, U> {
     }
 
     #[inline]
-    fn render_escaped<E: Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         if let Ok(inner) = self {
             inner.render_escaped(encoder)?;
         }
@@ -414,10 +364,7 @@ impl<T: Content, U> Content for Result<T, U> {
     }
 
     #[inline]
-    fn render_unescaped<E: Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         if let Ok(ref inner) = self {
             inner.render_unescaped(encoder)?;
         }
@@ -426,11 +373,7 @@ impl<T: Content, U> Content for Result<T, U> {
     }
 
     #[inline]
-    fn render_section<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -450,11 +393,7 @@ impl<T: Content> Content for Vec<T> {
     }
 
     #[inline]
-    fn render_section<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -492,11 +431,7 @@ impl<T: Content> Content for IndexBasedRender<'_, T> {
 
     /// Render a section with self.
     #[inline]
-    fn render_section<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -585,11 +520,7 @@ impl<T: Content> Content for [T] {
     }
 
     #[inline]
-    fn render_section<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -609,11 +540,7 @@ impl<T: Content, const N: usize> Content for [T; N] {
     }
 
     #[inline]
-    fn render_section<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -633,11 +560,7 @@ impl<T: Content, const N: usize> Content for ArrayVec<T, N> {
     }
 
     #[inline]
-    fn render_section<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -662,11 +585,7 @@ where
 
     /// Render a section with self.
     #[inline]
-    fn render_section<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -678,12 +597,7 @@ where
         }
     }
 
-    fn render_field_escaped<E>(
-        &self,
-        _: u64,
-        name: &str,
-        encoder: &mut E,
-    ) -> Result<bool, E::Error>
+    fn render_field_escaped<E>(&self, _: u64, name: &str, encoder: &mut E) -> Result<bool, E::Error>
     where
         E: Encoder,
     {
@@ -754,11 +668,7 @@ where
 
     /// Render a section with self.
     #[inline]
-    fn render_section<C, E>(
-        &self,
-        section: Section<C>,
-        encoder: &mut E,
-    ) -> Result<(), E::Error>
+    fn render_section<C, E>(&self, section: Section<C>, encoder: &mut E) -> Result<(), E::Error>
     where
         C: ContentSequence,
         E: Encoder,
@@ -770,12 +680,7 @@ where
         }
     }
 
-    fn render_field_escaped<E>(
-        &self,
-        _: u64,
-        name: &str,
-        encoder: &mut E,
-    ) -> Result<bool, E::Error>
+    fn render_field_escaped<E>(&self, _: u64, name: &str, encoder: &mut E) -> Result<bool, E::Error>
     where
         E: Encoder,
     {
@@ -972,18 +877,12 @@ impl Content for beef::Cow<'_, str> {
     }
 
     #[inline]
-    fn render_escaped<E: Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         encoder.write_escaped(self)
     }
 
     #[inline]
-    fn render_unescaped<E: Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         encoder.write_unescaped(self)
     }
 }
@@ -1001,18 +900,12 @@ impl Content for beef::lean::Cow<'_, str> {
     }
 
     #[inline]
-    fn render_escaped<E: Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    fn render_escaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         encoder.write_escaped(self)
     }
 
     #[inline]
-    fn render_unescaped<E: Encoder>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
+    fn render_unescaped<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         encoder.write_unescaped(self)
     }
 }
