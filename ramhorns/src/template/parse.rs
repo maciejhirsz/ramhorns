@@ -81,17 +81,11 @@ enum Closing {
 }
 
 /// Marker of how many braces we expect to match
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, Default)]
 pub enum Braces {
+    #[default]
     Two = 2,
     Three = 3,
-}
-
-impl Default for Braces {
-    #[inline]
-    fn default() -> Self {
-        Braces::Two
-    }
 }
 
 impl<'tpl> Template<'tpl> {

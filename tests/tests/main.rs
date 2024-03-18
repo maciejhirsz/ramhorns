@@ -494,9 +494,7 @@ fn can_render_callback() {
 
     let tpl = Template::new("<div>{{body}}</div>").unwrap();
 
-    let html = tpl.render(&Post {
-        body: "One",
-    });
+    let html = tpl.render(&Post { body: "One" });
 
     assert_eq!(html, "<div>One+One</div>");
 }
@@ -759,7 +757,9 @@ fn simple_partials_extend() {
 
     assert_eq!(
         tpls.get("basic2.html").unwrap().render(&post),
-        read_to_string("more_templates/basic2.result").unwrap().trim_end()
+        read_to_string("more_templates/basic2.result")
+            .unwrap()
+            .trim_end()
     );
 }
 

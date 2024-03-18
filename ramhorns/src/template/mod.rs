@@ -22,8 +22,8 @@ use crate::{Content, Error};
 mod parse;
 mod section;
 
-pub use section::Section;
 pub use parse::Tag;
+pub use section::Section;
 
 /// A preprocessed form of the plain text template, ready to be rendered
 /// with data contained in types implementing the `Content` trait.

@@ -121,7 +121,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                     if let Some(path) = ramhorns.callback {
                         callback = Some(path);
                     }
-                },
+                }
                 Ok(None) => (),
                 Err(err) => errors.push(err),
             };
