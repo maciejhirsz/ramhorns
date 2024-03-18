@@ -5,9 +5,6 @@ members = [
     "tests",
 ]
 
-[patch.crates-io]
-ramhorns-derive = { path = "./ramhorns-derive" }
-
 [profile.bench]
 lto = "fat"
 codegen-units = 1
