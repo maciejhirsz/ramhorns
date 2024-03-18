@@ -762,9 +762,7 @@ fn simple_partials_insert() {
     tpls.insert("{{>style.css}} OH YEAH", "style.html").unwrap();
     assert_eq!(
         tpls.get("style.html").unwrap().render(&post),
-        read_to_string("templates/style.result")
-            .unwrap()
-            .trim_end()
+        read_to_string("templates/style.result").unwrap().trim_end()
     );
 }
 
