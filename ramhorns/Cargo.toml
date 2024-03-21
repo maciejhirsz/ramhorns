@@ -2,7 +2,7 @@
 name = "ramhorns"
 version = "1.0.0"
 authors = ["Maciej Hirsz <hello@maciej.codes>"]
-license = "GPL-3.0"
+license = "MPL-2.0"
 edition = "2018"
 description = "Experimental Mustache-like templating engine."
 repository = "https://github.com/maciejhirsz/ramhorns"
