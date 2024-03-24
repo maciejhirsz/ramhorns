@@ -1,11 +1,6 @@
-// Ramhorns  Copyright (C) 2019  Maciej Hirsz
-//
-// This file is part of Ramhorns. This program comes with ABSOLUTELY NO WARRANTY;
-// This is free software, and you are welcome to redistribute it under the
-// conditions of the GNU General Public License version 3.0.
-//
-// You should have received a copy of the GNU General Public License
-// along with Ramhorns.  If not, see <http://www.gnu.org/licenses/>
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use arrayvec::ArrayVec;
 use logos::Logos;

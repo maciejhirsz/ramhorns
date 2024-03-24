@@ -19,8 +19,6 @@ With a touch of magic 🎩, the power of friendship 🥂, and a sparkle of
 ✨, render times easily compete with static template engines like
 [**Askama**](https://github.com/djc/askama).
 
-What else do you want, a sticker?
-
 ### Cargo.toml
 
 ```toml
@@ -128,5 +126,4 @@ thing to **Ramhorns** in design and feature set.
 
 ### License
 
-Ramhorns is free software, and is released under the terms of the GNU General Public
-License version 3. See [LICENSE](LICENSE).
+Ramhorns is free software, and is released under the terms of the [Mozilla Public License](https://www.mozilla.org/en-US/MPL/) version 2.0. See [LICENSE](LICENSE).

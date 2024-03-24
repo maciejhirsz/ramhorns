@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! This module contains helper traits that are used internally to manage
 //! sequences of types implementing the `Content` trait, allowing us to
 //! statically manage parent section lookups without doing extra work on
