@@ -13,7 +13,6 @@
 
 extern crate proc_macro;
 
-use bae::FromAttributes;
 use fnv::FnvHasher;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
@@ -54,16 +53,80 @@ impl Ord for Field {
     }
 }
 
-#[derive(FromAttributes)]
 struct Ramhorns {
-    skip: Option<()>,
-    md: Option<()>,
-    flatten: Option<()>,
+    skip: bool,
+    md: bool,
+    flatten: bool,
     rename: Option<LitStr>,
     rename_all: Option<LitStr>,
     callback: Option<Path>,
 }
 
+impl Ramhorns {
+    pub fn try_from_attributes(attrs: &[syn::Attribute]) -> syn::Result<Option<Self>> {
+        for attr in attrs {
+            if let syn::Meta::List(ref list) = attr.meta {
+                if matches!(list.path.get_ident(), Some(path) if path == "ramhorns") {
+                    return Some(syn::parse2::<Self>(list.tokens.clone())).transpose();
+                }
+            }
+        }
+
+        Ok(None)
+    }
+}
+
+impl syn::parse::Parse for Ramhorns {
+    #[allow(unreachable_code, unused_imports, unused_variables)]
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut skip = false;
+        let mut md = false;
+        let mut flatten = false;
+        let mut rename = None;
+        let mut rename_all = None;
+        let mut callback = None;
+
+        while !input.is_empty() {
+            let bae_attr_ident = input.parse::<syn::Ident>()?;
+
+            match &*bae_attr_ident.to_string() {
+                "skip" => skip = true,
+                "md" => md = true,
+                "flatten" => flatten = true,
+                "rename" => {
+                    input.parse::<syn::Token![=]>()?;
+                    rename = Some(input.parse()?);
+                }
+                "rename_all" => {
+                    input.parse::<syn::Token![=]>()?;
+                    rename_all = Some(input.parse()?);
+                }
+                "callback" => {
+                    input.parse::<syn::Token![=]>()?;
+                    callback = Some(input.parse()?);
+                }
+                other => {
+                    return Err(syn::Error::new(
+                        bae_attr_ident.span(),
+                        format!("`ramhorns` got unknown `{other}` argument. Supported arguments are `callback`, `flatten`, `md`, `rename_all`, `rename`, `skip`"),
+                    ));
+                }
+            }
+
+            input.parse::<syn::Token![,]>().ok();
+        }
+        syn::Result::Ok(Self {
+            skip,
+            md,
+            flatten,
+            rename,
+            rename_all,
+            callback,
+        })
+    }
+}
+
+#[allow(clippy::enum_variant_names)]
 enum RenameAll {
     UpperCase,
     PascalCase,
@@ -73,6 +136,7 @@ enum RenameAll {
     KebabCase,
     ScreamingKebabCase,
 }
+
 impl TryFrom<LitStr> for RenameAll {
     type Error = syn::Error;
 
@@ -91,6 +155,7 @@ impl TryFrom<LitStr> for RenameAll {
         })
     }
 }
+
 impl RenameAll {
     fn rename(&self, input: &str) -> String {
         match &self {
@@ -154,13 +219,13 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
 
             match Ramhorns::try_from_attributes(&field.attrs) {
                 Ok(Some(ramhorns)) => {
-                    if ramhorns.skip.is_some() {
-                        skip = true;
-                    }
-                    if ramhorns.md.is_some() {
+                    skip = ramhorns.skip;
+
+                    if ramhorns.md {
                         callback = Some(md_callback.clone());
                     }
-                    if ramhorns.flatten.is_some() {
+
+                    if ramhorns.flatten {
                         flatten.push(field.ident.as_ref().map_or_else(
                             || {
                                 let index = index.to_string();
@@ -171,9 +236,11 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
                         ));
                         skip = true;
                     }
+
                     if let Some(lit_str) = ramhorns.rename {
                         rename = Some(lit_str.value());
                     }
+
                     if let Some(path) = ramhorns.callback {
                         callback = Some(path);
                     }
