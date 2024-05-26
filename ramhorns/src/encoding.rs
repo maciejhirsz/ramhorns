@@ -144,7 +144,7 @@ impl<W: io::Write> Encoder for EscapingIOEncoder<W> {
     #[cfg(feature = "pulldown-cmark")]
     #[inline]
     fn write_html<'a, I: Iterator<Item = Event<'a>>>(&mut self, iter: I) -> io::Result<()> {
-        html::write_html(&mut self.inner, iter)
+        html::write_html_io(&mut self.inner, iter)
     }
 
     #[inline]
