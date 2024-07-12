@@ -15,7 +15,7 @@ categories = ["template-engine"]
 arrayvec = "0.7.4"
 beef = "0.5.2"
 fnv = "1.0"
-pulldown-cmark = { version = "0.10", default_features = false, features = ["html"], optional = true }
+pulldown-cmark = { version = "0.11", default_features = false, features = ["html"], optional = true }
 ramhorns-derive = { version = "1.0.0", path = "../ramhorns-derive", optional = true }
 logos = "0.14.0"
 
