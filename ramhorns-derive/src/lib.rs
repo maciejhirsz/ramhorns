@@ -87,9 +87,9 @@ impl syn::parse::Parse for Ramhorns {
         let mut callback = None;
 
         while !input.is_empty() {
-            let bae_attr_ident = input.parse::<syn::Ident>()?;
+            let attr_ident = input.parse::<syn::Ident>()?;
 
-            match &*bae_attr_ident.to_string() {
+            match &*attr_ident.to_string() {
                 "skip" => skip = true,
                 "md" => md = true,
                 "flatten" => flatten = true,
@@ -107,7 +107,7 @@ impl syn::parse::Parse for Ramhorns {
                 }
                 other => {
                     return Err(syn::Error::new(
-                        bae_attr_ident.span(),
+                        attr_ident.span(),
                         format!("`ramhorns` got unknown `{other}` argument. Supported arguments are `callback`, `flatten`, `md`, `rename_all`, `rename`, `skip`"),
                     ));
                 }
@@ -361,7 +361,7 @@ pub fn content_derive(input: TokenStream) -> TokenStream {
 
     // FIXME: decouple lifetimes from actual generics with trait boundaries
     let tokens = quote! {
-        impl#generics ::ramhorns::Content for #name#generics #where_clause {
+        impl #generics ::ramhorns::Content for #name #generics #where_clause {
             #[inline]
             fn capacity_hint(&self, tpl: &::ramhorns::Template) -> usize {
                 tpl.capacity_hint() #( + self.#fields.capacity_hint(tpl) )*

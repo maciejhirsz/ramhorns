@@ -255,7 +255,7 @@ impl Content for f32 {
     #[inline]
     fn is_truthy(&self) -> bool {
         // Floats shoudn't be directly compared to 0
-        self.abs() > std::f32::EPSILON
+        self.abs() > f32::EPSILON
     }
 
     #[inline]
@@ -274,7 +274,7 @@ impl Content for f64 {
     #[inline]
     fn is_truthy(&self) -> bool {
         // Floats shoudn't be directly compared to 0
-        self.abs() > std::f64::EPSILON
+        self.abs() > f64::EPSILON
     }
 
     #[inline]
