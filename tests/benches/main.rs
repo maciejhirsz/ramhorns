@@ -29,7 +29,7 @@ const POST: Post = Post {
     body: "This is a really simple test of the rendering!",
 };
 const RENDERED_BYTES: u64 =
-    { (POST.title.len() + POST.body.len() + "<title></title><h1></h1><div></div>".len()) as u64 };
+    (POST.title.len() + POST.body.len() + "<title></title><h1></h1><div></div>".len()) as u64;
 
 #[derive(Content, Serialize, Template)]
 #[template(
