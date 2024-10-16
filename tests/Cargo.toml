@@ -8,13 +8,13 @@ edition = "2018"
 
 [dev-dependencies]
 ramhorns = { path = "../ramhorns" }
-askama = "0.9"
-handlebars = "3.1.0-beta.2"
+askama = "0.12"
+handlebars = "5"
 serde = "1.0"
 serde_derive = "1.0"
 mustache = "0.9"
 tera = "1.2.0"
-ahash = "0.7"
+ahash = "0.8"
 
 [features]
-indexes = [ "ramhorns/indexes" ]
+indexes = ["ramhorns/indexes"]
