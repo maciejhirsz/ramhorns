@@ -109,6 +109,14 @@ impl<H> fmt::Debug for Ramhorns<H> {
 }
 
 impl<H: BuildHasher + Default> Ramhorns<H> {
+
+    pub fn new() -> Result<Self, Error> {
+        Ok(Ramhorns {
+            partials: HashMap::default(),
+            dir: PathBuf::new(),
+        })
+    }
+
     /// Loads all the `.html` files as templates from the given folder, making them
     /// accessible via their path, joining partials as required. If a custom
     /// extension is wanted, see [from_folder_with_extension]
@@ -200,7 +208,7 @@ impl<H: BuildHasher + Default> Ramhorns<H> {
             partials: HashMap::default(),
             dir: dir.as_ref().canonicalize()?,
         })
-    }
+    } 
 
     /// Get the template with the given name, if it exists.
     pub fn get(&self, name: &str) -> Option<&Template<'static>> {
