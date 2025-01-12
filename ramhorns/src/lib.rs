@@ -120,15 +120,15 @@ impl<H: BuildHasher + Default> Ramhorns<H> {
     /// let data = Data{
     ///     content: "I am the content".to_string(),
     /// };
-    /// let mut tpls: Ramhorns = Ramhorns::new().unwrap();
+    /// let mut tpls: Ramhorns = Ramhorns::new();
     /// tpls.insert("{{content}}", "template").unwrap();
     /// let rendered = tpls.get("template").unwrap().render(&data);
     /// ```
-    pub fn new() -> Result<Self, Error> {
-        Ok(Ramhorns {
+    pub fn new() -> Self {
+        Ramhorns {
             partials: HashMap::default(),
             dir: PathBuf::new(),
-        })
+        }
     }
 
     /// Loads all the `.html` files as templates from the given folder, making them
