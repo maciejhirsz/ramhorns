@@ -110,6 +110,20 @@ impl<H> fmt::Debug for Ramhorns<H> {
 
 impl<H: BuildHasher + Default> Ramhorns<H> {
 
+    /// Create a new empty aggregator with no initial folder.
+    /// ```no_run
+    /// use ramhorns::{Ramhorns,Content};
+    /// #[derive(Content)]
+    /// struct Data {
+    ///     content: String,
+    /// }
+    /// let data = Data{
+    ///     content: "I am the content".to_string(),
+    /// };
+    /// let mut tpls: Ramhorns = Ramhorns::new().unwrap();
+    /// tpls.insert("{{content}}", "template").unwrap();
+    /// let rendered = tpls.get("template").unwrap().render(&data);
+    /// ```
     pub fn new() -> Result<Self, Error> {
         Ok(Ramhorns {
             partials: HashMap::default(),
