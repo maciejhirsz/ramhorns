@@ -37,7 +37,7 @@ pub struct Template<'tpl> {
     source: Cow<'tpl, str>,
 }
 
-impl<'tpl> fmt::Debug for Template<'tpl> {
+impl fmt::Debug for Template<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Template")
             .field("source", &self.source)
