@@ -17,7 +17,7 @@ beef = "0.5.2"
 fnv = "1.0"
 pulldown-cmark = { version = "0.12", default-features = false, features = ["html"], optional = true }
 ramhorns-derive = { version = "1.0.1", path = "../ramhorns-derive", optional = true }
-logos = "0.14.0"
+logos = "0.15.0"
 
 [dev-dependencies]
 pretty_assertions = "1.4"

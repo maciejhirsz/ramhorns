@@ -38,7 +38,7 @@ pub trait Encoder {
 /// Local helper for escaping stuff into strings.
 struct EscapingStringEncoder<'a>(&'a mut String);
 
-impl<'a> EscapingStringEncoder<'a> {
+impl EscapingStringEncoder<'_> {
     /// Write with escaping special HTML characters. Since we are dealing
     /// with a String, we don't need to return a `Result`.
     fn write_escaped(&mut self, part: &str) {
@@ -64,7 +64,7 @@ impl<'a> EscapingStringEncoder<'a> {
 }
 
 /// Provide a `fmt::Write` interface, so we can use `write!` macro.
-impl<'a> fmt::Write for EscapingStringEncoder<'a> {
+impl fmt::Write for EscapingStringEncoder<'_> {
     #[inline]
     fn write_str(&mut self, part: &str) -> fmt::Result {
         self.write_escaped(part);
