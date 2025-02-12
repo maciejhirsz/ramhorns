@@ -11,7 +11,7 @@ use std::path::Path;
 use beef::Cow;
 use fnv::FnvHasher;
 
-use crate::encoding::EscapingIOEncoder;
+use crate::encoding::{Encoder, EscapingIOEncoder};
 use crate::Partials;
 use crate::{Content, Error};
 
@@ -96,7 +96,7 @@ impl<'tpl> Template<'tpl> {
         let mut buf = String::with_capacity(capacity);
 
         // Ignore the result, cannot fail
-        let _ = Section::new(&self.blocks).with(content).render(&mut buf);
+        let _ = self.render_with_encoder(&mut buf, content);
 
         buf
     }
@@ -108,9 +108,7 @@ impl<'tpl> Template<'tpl> {
         C: Content,
     {
         let mut encoder = EscapingIOEncoder::new(writer);
-        Section::new(&self.blocks)
-            .with(content)
-            .render(&mut encoder)
+        self.render_with_encoder(&mut encoder, content)
     }
 
     /// Render this `Template` with a given `Content` to a file.
@@ -123,10 +121,16 @@ impl<'tpl> Template<'tpl> {
 
         let writer = BufWriter::new(File::create(path)?);
         let mut encoder = EscapingIOEncoder::new(writer);
+        self.render_with_encoder(&mut encoder, content)
+    }
 
-        Section::new(&self.blocks)
-            .with(content)
-            .render(&mut encoder)
+    /// Render this `Template` with a given `Content` and a custom `Encoder`
+    pub fn render_with_encoder<E, C>(&self, encoder: &mut E, content: &C) -> Result<(), E::Error>
+    where
+        E: Encoder,
+        C: Content,
+    {
+        Section::new(&self.blocks).with(content).render(encoder)
     }
 
     /// Get a reference to a source this `Template` was created from.
