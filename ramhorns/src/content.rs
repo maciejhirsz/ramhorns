@@ -393,32 +393,50 @@ impl<T: Content> Content for Vec<T> {
         C: ContentSequence,
         E: Encoder,
     {
-        #[cfg(feature = "indexes")]
-        for (index, item) in self.iter().enumerate() {
-            IndexBasedRender {
-                length: self.len(),
+        render_indexed_content_section(self.iter(), section, encoder)
+    }
+}
+
+/// Utility function for rendering items of a list with support for indexed sections.
+pub fn render_indexed_content_section<C, E, Item>(
+    items: impl ExactSizeIterator<Item = Item>,
+    section: Section<C>,
+    encoder: &mut E,
+) -> Result<(), E::Error>
+where
+    C: ContentSequence,
+    E: Encoder,
+    Item: Content,
+{
+    #[cfg(feature = "indexes")]
+    {
+        let length = items.len();
+        for (index, item) in items.enumerate() {
+            IndexedBasedReader {
+                length,
                 index,
                 item,
             }
             .render_section(section, encoder)?;
         }
-        #[cfg(not(feature = "indexes"))]
-        for item in self.iter() {
-            item.render_section(section, encoder)?;
-        }
-
-        Ok(())
     }
+    #[cfg(not(feature = "indexes"))]
+    for item in items {
+        item.render_section(section, encoder)?;
+    }
+
+    Ok(())
 }
 
 #[cfg(feature = "indexes")]
-struct IndexBasedRender<'a, T> {
+struct IndexedBasedReader<T> {
     length: usize,
     index: usize,
-    item: &'a T,
+    item: T,
 }
+
 #[cfg(feature = "indexes")]
-impl<T: Content> Content for IndexBasedRender<'_, T> {
+impl<T: Content> Content for IndexedBasedReader<T> {
     #[inline]
     fn is_truthy(&self) -> bool {
         true
@@ -439,14 +457,14 @@ impl<T: Content> Content for IndexBasedRender<'_, T> {
     }
 
     #[inline]
-    fn render_index_section<'section, P, E>(
+    fn render_index_section<C, E>(
         &self,
         indexed: &Indexed,
-        section: Section<'section, P>,
+        section: Section<'_, C>,
         encoder: &mut E,
     ) -> Result<bool, E::Error>
     where
-        P: ContentSequence,
+        C: ContentSequence,
         E: Encoder,
     {
         if indexed.is_truthy(self.length, self.index) {
@@ -520,11 +538,7 @@ impl<T: Content> Content for [T] {
         C: ContentSequence,
         E: Encoder,
     {
-        for item in self.iter() {
-            item.render_section(section, encoder)?;
-        }
-
-        Ok(())
+        render_indexed_content_section(self.iter(), section, encoder)
     }
 }
 
@@ -540,11 +554,7 @@ impl<T: Content, const N: usize> Content for [T; N] {
         C: ContentSequence,
         E: Encoder,
     {
-        for item in self.iter() {
-            item.render_section(section, encoder)?;
-        }
-
-        Ok(())
+        render_indexed_content_section(self.iter(), section, encoder)
     }
 }
 
@@ -560,11 +570,7 @@ impl<T: Content, const N: usize> Content for ArrayVec<T, N> {
         C: ContentSequence,
         E: Encoder,
     {
-        for item in self.iter() {
-            item.render_section(section, encoder)?;
-        }
-
-        Ok(())
+        render_indexed_content_section(self.iter(), section, encoder)
     }
 }
 
