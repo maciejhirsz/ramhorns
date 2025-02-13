@@ -21,7 +21,7 @@ mod section;
 #[cfg(not(feature = "indexes"))]
 pub use parse::Tag;
 #[cfg(feature = "indexes")]
-pub use parse::{Index::Last, Indexed, Tag};
+pub use parse::{Index, Indexed, Tag};
 pub use section::Section;
 
 /// A preprocessed form of the plain text template, ready to be rendered
@@ -256,10 +256,10 @@ mod test {
             &tpl.blocks,
             &[
                 Block::new("", "person", Tag::Section).children(7),
-                Block::new("", "-last", Tag::Indexed(Indexed::Exclude(Last))).children(2),
+                Block::new("", "-last", Tag::Indexed(Indexed::Exclude(Index::Last))).children(2),
                 Block::new("", "name", Tag::Unescaped),
                 Block::nameless("", Tag::Closing),
-                Block::new("", "-last", Tag::Indexed(Indexed::Include(Last))).children(2),
+                Block::new("", "-last", Tag::Indexed(Indexed::Include(Index::Last))).children(2),
                 Block::new("", "name", Tag::Unescaped),
                 Block::nameless("", Tag::Closing),
                 Block::nameless("", Tag::Closing),
