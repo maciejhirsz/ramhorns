@@ -112,6 +112,28 @@ impl<H> fmt::Debug for Ramhorns<H> {
 }
 
 impl<H: BuildHasher + Default> Ramhorns<H> {
+
+    /// Create a new empty aggregator with no initial folder.
+    /// ```no_run
+    /// use ramhorns::{Ramhorns,Content};
+    /// #[derive(Content)]
+    /// struct Data {
+    ///     content: String,
+    /// }
+    /// let data = Data{
+    ///     content: "I am the content".to_string(),
+    /// };
+    /// let mut tpls: Ramhorns = Ramhorns::new();
+    /// tpls.insert("{{content}}", "template").unwrap();
+    /// let rendered = tpls.get("template").unwrap().render(&data);
+    /// ```
+    pub fn new() -> Self {
+        Ramhorns {
+            partials: HashMap::default(),
+            dir: PathBuf::new(),
+        }
+    }
+
     /// Loads all the `.html` files as templates from the given folder, making them
     /// accessible via their path, joining partials as required. If a custom
     /// extension is wanted, see [from_folder_with_extension]
@@ -203,7 +225,7 @@ impl<H: BuildHasher + Default> Ramhorns<H> {
             partials: HashMap::default(),
             dir: dir.as_ref().canonicalize()?,
         })
-    }
+    } 
 
     /// Get the template with the given name, if it exists.
     pub fn get(&self, name: &str) -> Option<&Template<'static>> {
